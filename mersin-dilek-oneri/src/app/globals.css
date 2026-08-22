@@ -45,6 +45,28 @@
   --transition: 0.2s ease;
 }
 
+/* ─── Dashboard Shared ──────────────────────────────────────────────────── */
+.dashboard-loading {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.dashboard-search-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 640px) {
+  .dashboard-search-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ─── Reset & Base ───────────────────────────────────────────────────────── */
 *,
 *::before,
@@ -514,7 +536,7 @@ select.form-control {
   margin: 0 0 20px;
   font-size: 22px;
   font-weight: 700;
-  color: var(--text);
+  color: var(--text-primary);
   letter-spacing: -0.01em;
 }
 
@@ -1854,6 +1876,167 @@ select.form-control {
   white-space: nowrap;
 }
 
+.profile-petition-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.profile-movements-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  padding: 3px 10px;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.profile-movements-toggle:hover {
+  background: rgba(0, 48, 135, 0.08);
+}
+
+.profile-movements-toggle svg {
+  transition: transform var(--transition);
+}
+
+.profile-movements-toggle.is-open svg {
+  transform: rotate(180deg);
+}
+
+.profile-movements-panel {
+  padding: 18px 20px;
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  animation: movementsPanelIn 0.2s ease;
+}
+
+@keyframes movementsPanelIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.profile-movements-title {
+  margin: 0 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.profile-movements-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.profile-movements-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--error);
+}
+
+.profile-movements-retry {
+  padding: 3px 12px;
+  border: 1px solid var(--error);
+  border-radius: 9999px;
+  background: white;
+  color: var(--error);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-movements-retry:hover {
+  background: var(--error);
+  color: white;
+}
+
+.profile-movements-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-movement-item {
+  position: relative;
+  display: flex;
+  gap: 14px;
+}
+
+.profile-movement-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.profile-movement-dot {
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 9999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.15);
+  flex-shrink: 0;
+}
+
+.profile-movement-line {
+  width: 2px;
+  min-height: 40px;
+  flex-grow: 1;
+  margin-top: 6px;
+  border-radius: 9999px;
+  background: var(--border-light);
+}
+
+.profile-movement-body {
+  padding-bottom: 20px;
+}
+
+.profile-movement-item:last-child .profile-movement-body {
+  padding-bottom: 4px;
+}
+
+.profile-movement-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.profile-movement-current {
+  padding: 1px 8px;
+  border-radius: 9999px;
+  background: var(--success-bg);
+  color: var(--success);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.profile-movement-date {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .profile-logout-section {
   padding: 24px 0 16px;
   border-top: 1px solid var(--border);
@@ -1889,4 +2072,10 @@ select.form-control {
   .profile-stats-row { flex-direction: column; }
   .profile-petition-card { flex-direction: column; align-items: flex-start; gap: 10px; }
   .profile-petition-right { flex-direction: row; align-items: center; }
+  .profile-movements-panel { padding: 14px 16px; }
+}
+
+@keyframes toastSlideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }

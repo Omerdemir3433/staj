@@ -53,6 +53,7 @@ export default function AdminCategoriesPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [showFormModal, setShowFormModal] = useState(false);
 
   const loadCategories = useCallback(async () => {
     const response = await fetch("/api/admin/categories", {
@@ -120,6 +121,7 @@ export default function AdminCategoriesPage() {
   function resetForm() {
     setForm(emptyForm);
     setEditingId(null);
+    setShowFormModal(false);
   }
 
   function startEditing(category: Category) {
@@ -131,6 +133,7 @@ export default function AdminCategoriesPage() {
     });
     setError("");
     setSuccessMessage("");
+    setShowFormModal(true);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -274,81 +277,17 @@ export default function AdminCategoriesPage() {
           </div>
         )}
 
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div className="card-header">
-            <span className="card-title">
-              {editingId ? "✏️ Kategoriyi Düzenle" : "➕ Yeni Kategori"}
-            </span>
-          </div>
-
-          <div className="card-body">
-            <form onSubmit={handleSubmit}>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: 14,
-              }}>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="code">Kod</label>
-                  <input
-                    id="code"
-                    className="form-control"
-                    value={form.code}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, code: event.target.value }))
-                    }
-                    placeholder="Örn. ETKINLIK"
-                    maxLength={50}
-                    disabled={saving}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" htmlFor="name">Kategori Adı</label>
-                  <input
-                    id="name"
-                    className="form-control"
-                    value={form.name}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, name: event.target.value }))
-                    }
-                    placeholder="Örn. Etkinlik"
-                    maxLength={150}
-                    disabled={saving}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="description">Açıklama</label>
-                <textarea
-                  id="description"
-                  className="form-control"
-                  value={form.description}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, description: event.target.value }))
-                  }
-                  rows={4}
-                  disabled={saving}
-                />
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                {editingId && (
-                  <button type="button" className="btn btn-ghost" onClick={resetForm}>
-                    İptal
-                  </button>
-                )}
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving
-                    ? "Kaydediliyor..."
-                    : editingId
-                      ? "Değişiklikleri Kaydet"
-                      : "Kategori Ekle"}
-                </button>
-              </div>
-            </form>
-          </div>
+        <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              resetForm();
+              setShowFormModal(true);
+            }}
+          >
+            ➕ Yeni Kategori Ekle
+          </button>
         </div>
 
         <div className="card">
@@ -407,6 +346,85 @@ export default function AdminCategoriesPage() {
             </div>
           </div>
         </div>
+
+        {showFormModal && (
+          <div className="modal-overlay" onClick={resetForm}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <span className="modal-title">
+                  {editingId ? "✏️ Kategoriyi Düzenle" : "➕ Yeni Kategori"}
+                </span>
+                <button className="modal-close" onClick={resetForm}>×</button>
+              </div>
+              <div className="modal-body">
+                <form onSubmit={handleSubmit}>
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: 14,
+                  }}>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="code">Kod</label>
+                      <input
+                        id="code"
+                        className="form-control"
+                        value={form.code}
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, code: event.target.value }))
+                        }
+                        placeholder="Örn. ETKINLIK"
+                        maxLength={50}
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="name">Kategori Adı</label>
+                      <input
+                        id="name"
+                        className="form-control"
+                        value={form.name}
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, name: event.target.value }))
+                        }
+                        placeholder="Örn. Etkinlik"
+                        maxLength={150}
+                        disabled={saving}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="description">Açıklama</label>
+                    <textarea
+                      id="description"
+                      className="form-control"
+                      value={form.description}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, description: event.target.value }))
+                      }
+                      rows={4}
+                      disabled={saving}
+                    />
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+                    <button type="button" className="btn btn-ghost" disabled={saving} onClick={resetForm}>
+                      İptal
+                    </button>
+                    <button type="submit" className="btn btn-primary" disabled={saving}>
+                      {saving
+                        ? "Kaydediliyor..."
+                        : editingId
+                          ? "Değişiklikleri Kaydet"
+                          : "Kategori Ekle"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

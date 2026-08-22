@@ -29,7 +29,10 @@ const initialForm: CreatePetitionFormData = {
 };
 
 interface NewPetitionFormProps {
-  onSuccess: (message: string) => void;
+  onSuccess: (
+    message: string,
+    developmentVerificationUrl?: string
+  ) => void;
   onCancel: () => void;
 }
 
@@ -337,7 +340,10 @@ export default function NewPetitionForm({
         return;
       }
 
-      onSuccess(data.message);
+      onSuccess(
+        data.message,
+        data.developmentVerificationUrl
+      );
     } catch (submitError) {
       console.error(
         "Başvuru gönderme isteği başarısız:",

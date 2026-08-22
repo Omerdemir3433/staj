@@ -138,6 +138,8 @@ async function createUniqueTrackingCode(): Promise<string> {
   return trackingCode;
 }
 
+const MAX_PAGE_SIZE = 50;
+
 /**
  * Yetkili kurum personeli veya oturum açmış iç kullanıcılar
  * için başvuru listesini getirir.
@@ -154,6 +156,10 @@ export async function GET(request: NextRequest) {
       { status: 401 }
     );
   }
+
+  const url = new URL(request.url);
+  const limitParam = parseInt(url.searchParams.get("limit") || String(MAX_PAGE_SIZE), 10);
+  const take = Math.min(Math.max(limitParam, 1), MAX_PAGE_SIZE);
 
   try {
     if (session.type === "INTERNAL") {
@@ -196,6 +202,7 @@ export async function GET(request: NextRequest) {
         orderBy: {
           createdAt: "desc",
         },
+        take,
       });
 
       return NextResponse.json({
@@ -218,10 +225,7 @@ export async function GET(request: NextRequest) {
               },
             }
           : {
-              OR: [
-                { targetUnitId: staffUser.unitId ?? -1 },
-                { createdByStaffId: staffUser.id },
-              ],
+              targetUnitId: staffUser.unitId ?? -1,
               emailVerifiedAt: {
                 not: null,
               },
@@ -266,6 +270,7 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: "desc",
       },
+      take,
     });
 
     return NextResponse.json({
@@ -653,6 +658,9 @@ export async function POST(request: NextRequest) {
       message:
         "Başvurunuz oluşturuldu. Devam etmek için e-posta adresinize gönderilen doğrulama bağlantısını açın.",
       verificationRequired: true,
+      ...(process.env.NODE_ENV !== "production"
+        ? { developmentVerificationUrl: verificationUrl }
+        : {}),
     };
 
     return NextResponse.json(response, {

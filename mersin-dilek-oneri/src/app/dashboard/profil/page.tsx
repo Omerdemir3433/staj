@@ -24,6 +24,17 @@ interface Petition {
   createdAt: string;
 }
 
+interface StatusHistoryItem {
+  fromStatus: string | null;
+  toStatus: string;
+  createdAt: string;
+}
+
+type MovementState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; history: StatusHistoryItem[] };
+
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Sistem Yöneticisi",
   UNIT_MANAGER: "Birim Yöneticisi",
@@ -68,15 +79,8 @@ const PRIORITY_LABELS: Record<string, string> = {
   URGENT: "Acil",
 };
 
-function getDetailPath(role: StaffRole, petitionId: number): string {
-  switch (role) {
-    case "STUDENT":
-      return `/dashboard/ogrenci/basvurular/${petitionId}`;
-    case "ACADEMIC":
-      return `/dashboard/akademik/basvurular/${petitionId}`;
-    default:
-      return `/dashboard/personel/basvurular/${petitionId}`;
-  }
+function getTrackingPath(trackingCode: string): string {
+  return `/basvuru-takip?kod=${encodeURIComponent(trackingCode)}`;
 }
 
 function getDashboardPathForRole(role: StaffRole): string {
@@ -96,11 +100,20 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat("tr-TR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [petitions, setPetitions] = useState<Petition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [movements, setMovements] = useState<Record<number, MovementState>>({});
 
   useEffect(() => {
     async function loadData() {
@@ -137,6 +150,53 @@ export default function ProfilePage() {
     } finally {
       router.push("/");
       router.refresh();
+    }
+  }
+
+  async function loadMovements(petitionId: number) {
+    setMovements((prev) => ({ ...prev, [petitionId]: { status: "loading" } }));
+    try {
+      const res = await fetch(`/api/user/petitions/${petitionId}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.petition) {
+        setMovements((prev) => ({
+          ...prev,
+          [petitionId]: {
+            status: "error",
+            message: data.error || "Başvuru hareketleri yüklenemedi.",
+          },
+        }));
+        return;
+      }
+      setMovements((prev) => ({
+        ...prev,
+        [petitionId]: {
+          status: "ready",
+          history: data.petition.statusHistory ?? [],
+        },
+      }));
+    } catch {
+      setMovements((prev) => ({
+        ...prev,
+        [petitionId]: {
+          status: "error",
+          message: "Başvuru hareketleri yüklenirken bir hata oluştu.",
+        },
+      }));
+    }
+  }
+
+  function handleToggleMovements(petitionId: number) {
+    if (expandedId === petitionId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(petitionId);
+    if (!movements[petitionId]) {
+      void loadMovements(petitionId);
     }
   }
 
@@ -178,6 +238,14 @@ export default function ProfilePage() {
   return (
     <div className="page-wrapper">
       <main className="main-content">
+
+        <Link
+          href={getDashboardPathForRole(user.role)}
+          className="btn btn-outline btn-sm"
+          style={{ marginBottom: 16, display: "inline-flex" }}
+        >
+          ← Dashboard&apos;a Dön
+        </Link>
 
         {/* Avatar + Name */}
         <div className="profile-hero">
@@ -238,40 +306,110 @@ export default function ProfilePage() {
               {petitions.map((petition) => {
                 const stColor = STATUS_COLORS[petition.status] ?? { bg: "#f1f5f9", text: "#475569" };
                 const prColor = PRIORITY_COLORS[petition.priority] ?? { bg: "#f1f5f9", text: "#64748b" };
+                const isExpanded = expandedId === petition.id;
+                const movementState = movements[petition.id];
                 return (
-                  <article
-                    key={petition.id}
-                    className="profile-petition-card"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => router.push(getDetailPath(user.role, petition.id))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        router.push(getDetailPath(user.role, petition.id));
-                      }
-                    }}
-                  >
-                    <div className="profile-petition-left">
-                      <span className="profile-petition-tracking">{petition.trackingCode}</span>
-                      <span className="profile-petition-subject">{petition.subject}</span>
-                      <span className="profile-petition-date">{formatDate(petition.createdAt)}</span>
-                    </div>
-                    <div className="profile-petition-right">
-                      <span
-                        className="profile-tag"
-                        style={{ background: stColor.bg, color: stColor.text }}
-                      >
-                        {STATUS_LABELS[petition.status] ?? petition.status}
-                      </span>
-                      <span
-                        className="profile-tag"
-                        style={{ background: prColor.bg, color: prColor.text }}
-                      >
-                        {PRIORITY_LABELS[petition.priority] ?? petition.priority}
-                      </span>
-                    </div>
-                  </article>
+                  <div key={petition.id} className="profile-petition-item">
+                    <article
+                      className="profile-petition-card"
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                      onClick={() => router.push(getTrackingPath(petition.trackingCode))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          router.push(getTrackingPath(petition.trackingCode));
+                        }
+                      }}
+                    >
+                      <div className="profile-petition-left">
+                        <span className="profile-petition-tracking">{petition.trackingCode}</span>
+                        <span className="profile-petition-subject">{petition.subject}</span>
+                        <span className="profile-petition-date">{formatDate(petition.createdAt)}</span>
+                      </div>
+                      <div className="profile-petition-right">
+                        <span
+                          className="profile-tag"
+                          style={{ background: stColor.bg, color: stColor.text }}
+                        >
+                          {STATUS_LABELS[petition.status] ?? petition.status}
+                        </span>
+                        <span
+                          className="profile-tag"
+                          style={{ background: prColor.bg, color: prColor.text }}
+                        >
+                          {PRIORITY_LABELS[petition.priority] ?? petition.priority}
+                        </span>
+                        <button
+                          type="button"
+                          className={`profile-movements-toggle${isExpanded ? " is-open" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleMovements(petition.id);
+                          }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                          Başvuru Hareketleri
+                        </button>
+                      </div>
+                    </article>
+
+                    {isExpanded && (
+                      <div className="profile-movements-panel">
+                        <h3 className="profile-movements-title">Başvuru Hareketleri</h3>
+
+                        {!movementState || movementState.status === "loading" ? (
+                          <p className="profile-movements-hint">Hareketler yükleniyor...</p>
+                        ) : movementState.status === "error" ? (
+                          <div className="profile-movements-error">
+                            {movementState.message}
+                            <button
+                              type="button"
+                              className="profile-movements-retry"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void loadMovements(petition.id);
+                              }}
+                            >
+                              Tekrar Dene
+                            </button>
+                          </div>
+                        ) : movementState.history.length === 0 ? (
+                          <p className="profile-movements-hint">Henüz hareket kaydı bulunmuyor.</p>
+                        ) : (
+                          <div className="profile-movements-list">
+                            {movementState.history.map((item, index) => (
+                              <div
+                                key={`${item.toStatus}-${item.createdAt}-${index}`}
+                                className="profile-movement-item"
+                              >
+                                <div className="profile-movement-rail">
+                                  <span className="profile-movement-dot" />
+                                  {index < movementState.history.length - 1 && (
+                                    <span className="profile-movement-line" />
+                                  )}
+                                </div>
+                                <div className="profile-movement-body">
+                                  <p className="profile-movement-status">
+                                    {STATUS_LABELS[item.toStatus] ?? item.toStatus}
+                                    {index === movementState.history.length - 1 && (
+                                      <span className="profile-movement-current">Güncel Aşama</span>
+                                    )}
+                                  </p>
+                                  <p className="profile-movement-date">
+                                    {formatDateTime(item.createdAt)}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Toast from "@/components/Toast";
 
 type SupportRequestStatus = "PENDING" | "ACCEPTED" | "REJECTED";
 type PetitionStatus =
@@ -90,6 +91,7 @@ export default function AdminDestekPaneliPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<Record<number, number>>({});
 
@@ -125,10 +127,14 @@ export default function AdminDestekPaneliPage() {
     void loadData();
   }, []);
 
+  function showToast(message: string, type: "success" | "error" | "info" = "info") {
+    setToast({ message, type });
+  }
+
   const handleAccept = async (sr: SupportRequest) => {
     const unitId = selectedUnitId[sr.id];
     if (!unitId) {
-      alert("Lütfen bir destek birimi seçin.");
+      showToast("Lütfen bir destek birimi seçin.", "error");
       return;
     }
 
@@ -151,7 +157,7 @@ export default function AdminDestekPaneliPage() {
       const data: ResolveResponse = await response.json();
 
       if (!data.success) {
-        alert(data.error || "İşlem başarısız.");
+        showToast(data.error || "İşlem başarısız.", "error");
         return;
       }
 
@@ -163,7 +169,7 @@ export default function AdminDestekPaneliPage() {
         )
       );
     } catch {
-      alert("İşlem sırasında bir hata oluştu.");
+      showToast("İşlem sırasında bir hata oluştu.", "error");
     } finally {
       setProcessingId(null);
     }
@@ -190,7 +196,7 @@ export default function AdminDestekPaneliPage() {
       const data: ResolveResponse = await response.json();
 
       if (!data.success) {
-        alert(data.error || "İşlem başarısız.");
+        showToast(data.error || "İşlem başarısız.", "error");
         return;
       }
 
@@ -202,7 +208,7 @@ export default function AdminDestekPaneliPage() {
         )
       );
     } catch {
-      alert("İşlem sırasında bir hata oluştu.");
+      showToast("İşlem sırasında bir hata oluştu.", "error");
     } finally {
       setProcessingId(null);
     }
@@ -532,6 +538,8 @@ export default function AdminDestekPaneliPage() {
           </>
         )}
       </main>
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <footer className="footer">
         <strong>Mersin Üniversitesi</strong> — Dilek &amp; Öneri Sistemi © {new Date().getFullYear()}

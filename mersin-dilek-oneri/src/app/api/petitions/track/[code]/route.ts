@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 const MAX_TRACKING_CODE_LENGTH = 24;
-const MAX_EMAIL_LENGTH = 255;
 
 interface RouteContext {
   params: Promise<{
@@ -41,13 +40,6 @@ function isValidTrackingCode(
   );
 }
 
-function isValidEmail(email: string): boolean {
-  return (
-    email.length <= MAX_EMAIL_LENGTH &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-  );
-}
-
 function createErrorResponse(
   error: string,
   status: number
@@ -69,11 +61,9 @@ function createErrorResponse(
 }
 
 /**
- * Başvuru sahibinin takip kodu ve e-posta adresiyle
- * doğrulanmış başvurusunu görüntülemesini sağlar.
- *
- * Kişisel bilgiler, kurum içi cevaplar ve kurum içi
- * durum notları başvuru sahibine gönderilmez.
+ * Takip koduyla doğrulanmış başvurunun görüntülendiği
+ * açık endpoint. E-posta zorunlu değildir; yalnızca
+ * takip kodu yeterlidir.
  */
 export async function GET(
   request: NextRequest,
@@ -103,29 +93,9 @@ export async function GET(
       );
     }
 
-    const email = request.nextUrl.searchParams
-      .get("email")
-      ?.trim()
-      .toLowerCase();
-
-    if (!email) {
-      return createErrorResponse(
-        "Başvuruyu görüntülemek için e-posta adresi zorunludur.",
-        400
-      );
-    }
-
-    if (!isValidEmail(email)) {
-      return createErrorResponse(
-        "Geçerli bir e-posta adresi girin.",
-        400
-      );
-    }
-
     const petition = await prisma.petition.findFirst({
       where: {
         trackingCode,
-        applicantEmail: email,
         emailVerifiedAt: {
           not: null,
         },
@@ -175,8 +145,27 @@ export async function GET(
     });
 
     if (!petition) {
+      const pendingPetition = await prisma.petition.findFirst({
+        where: { trackingCode },
+        select: {
+          emailVerifiedAt: true,
+          status: true,
+        },
+      });
+
+      if (
+        pendingPetition &&
+        (!pendingPetition.emailVerifiedAt ||
+          pendingPetition.status === "EMAIL_PENDING")
+      ) {
+        return createErrorResponse(
+          "Bu başvurunun e-posta doğrulaması henüz tamamlanmamış. Doğrulamadan sonra tekrar deneyin.",
+          404
+        );
+      }
+
       return createErrorResponse(
-        "Başvuru bulunamadı. Takip kodu ve e-posta adresini kontrol edin.",
+        "Bu takip koduyla eşleşen doğrulanmış bir başvuru bulunamadı.",
         404
       );
     }

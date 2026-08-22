@@ -26,6 +26,16 @@ const STAFF_NAV_ITEMS = [
   { href: "/dashboard/birim-personeli", label: "Birim Paneli" },
 ];
 
+const STUDENT_NAV_ITEMS = [
+  { href: "/dashboard/ogrenci", label: "Ana Sayfa" },
+  { href: "/dashboard/basvuru-olustur", label: "Başvuru Oluştur" },
+];
+
+const ACADEMIC_NAV_ITEMS = [
+  { href: "/dashboard/akademik", label: "Ana Sayfa" },
+  { href: "/dashboard/basvuru-olustur", label: "Başvuru Oluştur" },
+];
+
 function getNavItems(user: SessionUser | null) {
   if (!user) {
     return [
@@ -38,6 +48,8 @@ function getNavItems(user: SessionUser | null) {
   if (user.role === "ADMIN") return [...ADMIN_NAV_ITEMS];
   if (user.role === "UNIT_MANAGER") return [...MANAGER_NAV_ITEMS];
   if (user.role === "UNIT_STAFF") return [...STAFF_NAV_ITEMS];
+  if (user.role === "STUDENT") return [...STUDENT_NAV_ITEMS];
+  if (user.role === "ACADEMIC") return [...ACADEMIC_NAV_ITEMS];
 
   return [];
 }

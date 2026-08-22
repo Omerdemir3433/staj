@@ -100,6 +100,7 @@ export default function AdminStaffPage() {
   const [saving, setSaving] = useState(false);
   const [actionId, setActionId] = useState<number | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [showFormModal, setShowFormModal] = useState(false);
 
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -293,6 +294,7 @@ export default function AdminStaffPage() {
 
       setSuccessMessage("Personel başarıyla oluşturuldu.");
       setCreateForm(EMPTY_CREATE_FORM);
+      setShowFormModal(false);
       await loadStaff(filters);
     } catch (submitError) {
       setError(
@@ -317,12 +319,13 @@ export default function AdminStaffPage() {
       unitId: staff.unit ? String(staff.unit.id) : "",
       isActive: staff.isActive,
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setShowFormModal(true);
   };
 
   const cancelEditing = () => {
     clearMessages();
     setEditingStaff(null);
+    setShowFormModal(false);
   };
 
   const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -378,6 +381,7 @@ export default function AdminStaffPage() {
 
       setSuccessMessage("Personel başarıyla güncellendi.");
       setEditingStaff(null);
+      setShowFormModal(false);
       await loadStaff(filters);
     } catch (submitError) {
       setError(
@@ -543,371 +547,19 @@ export default function AdminStaffPage() {
           </div>
         )}
 
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div className="card-header">
-            <span className="card-title">
-              {editingStaff
-                ? "✏️ Personeli Düzenle"
-                : "➕ Yeni Personel Ekle"}
-            </span>
-          </div>
-
-          <div className="card-body">
-            {editingStaff ? (
-              <form onSubmit={handleEditSubmit}>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                    gap: 14,
-                  }}
-                >
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="edit-firstName">
-                      Ad
-                    </label>
-                    <input
-                      id="edit-firstName"
-                      className="form-control"
-                      type="text"
-                      required
-                      maxLength={100}
-                      value={editForm.firstName}
-                      onChange={(event) =>
-                        setEditForm((current) => ({
-                          ...current,
-                          firstName: event.target.value,
-                        }))
-                      }
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="edit-lastName">
-                      Soyad
-                    </label>
-                    <input
-                      id="edit-lastName"
-                      className="form-control"
-                      type="text"
-                      required
-                      maxLength={100}
-                      value={editForm.lastName}
-                      onChange={(event) =>
-                        setEditForm((current) => ({
-                          ...current,
-                          lastName: event.target.value,
-                        }))
-                      }
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="edit-email">
-                      E-posta
-                    </label>
-                    <input
-                      id="edit-email"
-                      className="form-control"
-                      type="email"
-                      required
-                      maxLength={255}
-                      value={editForm.email}
-                      onChange={(event) =>
-                        setEditForm((current) => ({
-                          ...current,
-                          email: event.target.value,
-                        }))
-                      }
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="edit-password">
-                      Şifre (değiştirmek için doldurun)
-                    </label>
-                    <input
-                      id="edit-password"
-                      className="form-control"
-                      type="password"
-                      minLength={6}
-                      value={editForm.password}
-                      onChange={(event) =>
-                        setEditForm((current) => ({
-                          ...current,
-                          password: event.target.value,
-                        }))
-                      }
-                      placeholder="En az 6 karakter"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="edit-role">
-                      Rol
-                    </label>
-                    <select
-                      id="edit-role"
-                      className="form-control"
-                      value={editForm.role}
-                      onChange={(event) =>
-                        setEditForm((current) => ({
-                          ...current,
-                          role: event.target.value as EditFormData["role"],
-                        }))
-                      }
-                      disabled={saving}
-                    >
-                      <option value="ADMIN">Sistem Yöneticisi</option>
-                      <option value="UNIT_MANAGER">Birim Yöneticisi</option>
-                      <option value="UNIT_STAFF">Birim Personeli</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="edit-unit">
-                      Birim
-                    </label>
-                    <select
-                      id="edit-unit"
-                      className="form-control"
-                      value={editForm.unitId}
-                      onChange={(event) =>
-                        setEditForm((current) => ({
-                          ...current,
-                          unitId: event.target.value,
-                        }))
-                      }
-                      disabled={saving}
-                    >
-                      <option value="">Birimsiz</option>
-                      {units
-                        .filter((u) => u.isActive)
-                        .map((unit) => (
-                          <option key={unit.id} value={unit.id}>
-                            {unit.name} ({unit.code})
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="edit-isActive">
-                      Durum
-                    </label>
-                    <select
-                      id="edit-isActive"
-                      className="form-control"
-                      value={editForm.isActive ? "true" : "false"}
-                      onChange={(event) =>
-                        setEditForm((current) => ({
-                          ...current,
-                          isActive: event.target.value === "true",
-                        }))
-                      }
-                      disabled={saving}
-                    >
-                      <option value="true">Aktif</option>
-                      <option value="false">Pasif</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    gap: 10,
-                    marginTop: 8,
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    disabled={saving}
-                    onClick={cancelEditing}
-                  >
-                    İptal
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={saving}
-                  >
-                    {saving ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <form onSubmit={handleCreateSubmit}>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                    gap: 14,
-                  }}
-                >
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="create-firstName">
-                      Ad
-                    </label>
-                    <input
-                      id="create-firstName"
-                      className="form-control"
-                      type="text"
-                      required
-                      maxLength={100}
-                      value={createForm.firstName}
-                      onChange={(event) =>
-                        handleCreateInputChange(
-                          "firstName",
-                          event.target.value
-                        )
-                      }
-                      placeholder="Ad"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="create-lastName">
-                      Soyad
-                    </label>
-                    <input
-                      id="create-lastName"
-                      className="form-control"
-                      type="text"
-                      required
-                      maxLength={100}
-                      value={createForm.lastName}
-                      onChange={(event) =>
-                        handleCreateInputChange(
-                          "lastName",
-                          event.target.value
-                        )
-                      }
-                      placeholder="Soyad"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="create-email">
-                      E-posta
-                    </label>
-                    <input
-                      id="create-email"
-                      className="form-control"
-                      type="email"
-                      required
-                      maxLength={255}
-                      value={createForm.email}
-                      onChange={(event) =>
-                        handleCreateInputChange(
-                          "email",
-                          event.target.value
-                        )
-                      }
-                      placeholder="ornek@mersin.edu.tr"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="create-password">
-                      Şifre
-                    </label>
-                    <input
-                      id="create-password"
-                      className="form-control"
-                      type="password"
-                      required
-                      minLength={6}
-                      value={createForm.password}
-                      onChange={(event) =>
-                        handleCreateInputChange(
-                          "password",
-                          event.target.value
-                        )
-                      }
-                      placeholder="En az 6 karakter"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="create-role">
-                      Rol
-                    </label>
-                    <select
-                      id="create-role"
-                      className="form-control"
-                      value={createForm.role}
-                      onChange={(event) =>
-                        handleCreateInputChange(
-                          "role",
-                          event.target.value as CreateFormData["role"]
-                        )
-                      }
-                      disabled={saving}
-                    >
-                      <option value="ADMIN">Sistem Yöneticisi</option>
-                      <option value="UNIT_MANAGER">Birim Yöneticisi</option>
-                      <option value="UNIT_STAFF">Birim Personeli</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="create-unit">
-                      Birim
-                    </label>
-                    <select
-                      id="create-unit"
-                      className="form-control"
-                      value={createForm.unitId}
-                      onChange={(event) =>
-                        handleCreateInputChange(
-                          "unitId",
-                          event.target.value
-                        )
-                      }
-                      disabled={saving}
-                    >
-                      <option value="">Birim Seçin (isteğe bağlı)</option>
-                      {units
-                        .filter((u) => u.isActive)
-                        .map((unit) => (
-                          <option key={unit.id} value={unit.id}>
-                            {unit.name} ({unit.code})
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    gap: 10,
-                    marginTop: 8,
-                  }}
-                >
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={saving}
-                  >
-                    {saving ? "Kaydediliyor..." : "Personel Ekle"}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
+        <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              clearMessages();
+              setEditingStaff(null);
+              setCreateForm(EMPTY_CREATE_FORM);
+              setShowFormModal(true);
+            }}
+          >
+            ➕ Yeni Personel Ekle
+          </button>
         </div>
 
         <div className="card" style={{ marginBottom: 24 }}>
@@ -1203,6 +855,112 @@ export default function AdminStaffPage() {
           </div>
         </div>
       </main>
+
+      {showFormModal && (
+        <div className="modal-overlay" onClick={cancelEditing}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">
+                {editingStaff ? "✏️ Personeli Düzenle" : "➕ Yeni Personel Ekle"}
+              </span>
+              <button className="modal-close" onClick={cancelEditing}>×</button>
+            </div>
+            <div className="modal-body">
+              {editingStaff ? (
+                <form onSubmit={handleEditSubmit}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="edit-firstName">Ad</label>
+                      <input id="edit-firstName" className="form-control" type="text" required maxLength={100} value={editForm.firstName} onChange={(event) => setEditForm((current) => ({ ...current, firstName: event.target.value }))} disabled={saving} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="edit-lastName">Soyad</label>
+                      <input id="edit-lastName" className="form-control" type="text" required maxLength={100} value={editForm.lastName} onChange={(event) => setEditForm((current) => ({ ...current, lastName: event.target.value }))} disabled={saving} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="edit-email">E-posta</label>
+                      <input id="edit-email" className="form-control" type="email" required maxLength={255} value={editForm.email} onChange={(event) => setEditForm((current) => ({ ...current, email: event.target.value }))} disabled={saving} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="edit-password">Şifre (değiştirmek için doldurun)</label>
+                      <input id="edit-password" className="form-control" type="password" minLength={6} value={editForm.password} onChange={(event) => setEditForm((current) => ({ ...current, password: event.target.value }))} placeholder="En az 6 karakter" disabled={saving} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="edit-role">Rol</label>
+                      <select id="edit-role" className="form-control" value={editForm.role} onChange={(event) => setEditForm((current) => ({ ...current, role: event.target.value as EditFormData["role"] }))} disabled={saving}>
+                        <option value="ADMIN">Sistem Yöneticisi</option>
+                        <option value="UNIT_MANAGER">Birim Yöneticisi</option>
+                        <option value="UNIT_STAFF">Birim Personeli</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="edit-unit">Birim</label>
+                      <select id="edit-unit" className="form-control" value={editForm.unitId} onChange={(event) => setEditForm((current) => ({ ...current, unitId: event.target.value }))} disabled={saving}>
+                        <option value="">Birimsiz</option>
+                        {units.filter((u) => u.isActive).map((unit) => (
+                          <option key={unit.id} value={unit.id}>{unit.name} ({unit.code})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="edit-isActive">Durum</label>
+                      <select id="edit-isActive" className="form-control" value={editForm.isActive ? "true" : "false"} onChange={(event) => setEditForm((current) => ({ ...current, isActive: event.target.value === "true" }))} disabled={saving}>
+                        <option value="true">Aktif</option>
+                        <option value="false">Pasif</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+                    <button type="button" className="btn btn-ghost" disabled={saving} onClick={cancelEditing}>İptal</button>
+                    <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}</button>
+                  </div>
+                </form>
+              ) : (
+                <form onSubmit={handleCreateSubmit}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="create-firstName">Ad</label>
+                      <input id="create-firstName" className="form-control" type="text" required maxLength={100} value={createForm.firstName} onChange={(event) => handleCreateInputChange("firstName", event.target.value)} placeholder="Ad" disabled={saving} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="create-lastName">Soyad</label>
+                      <input id="create-lastName" className="form-control" type="text" required maxLength={100} value={createForm.lastName} onChange={(event) => handleCreateInputChange("lastName", event.target.value)} placeholder="Soyad" disabled={saving} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="create-email">E-posta</label>
+                      <input id="create-email" className="form-control" type="email" required maxLength={255} value={createForm.email} onChange={(event) => handleCreateInputChange("email", event.target.value)} placeholder="ornek@mersin.edu.tr" disabled={saving} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="create-password">Şifre</label>
+                      <input id="create-password" className="form-control" type="password" required minLength={6} value={createForm.password} onChange={(event) => handleCreateInputChange("password", event.target.value)} placeholder="En az 6 karakter" disabled={saving} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="create-role">Rol</label>
+                      <select id="create-role" className="form-control" value={createForm.role} onChange={(event) => handleCreateInputChange("role", event.target.value as CreateFormData["role"])} disabled={saving}>
+                        <option value="ADMIN">Sistem Yöneticisi</option>
+                        <option value="UNIT_MANAGER">Birim Yöneticisi</option>
+                        <option value="UNIT_STAFF">Birim Personeli</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="create-unit">Birim</label>
+                      <select id="create-unit" className="form-control" value={createForm.unitId} onChange={(event) => handleCreateInputChange("unitId", event.target.value)} disabled={saving}>
+                        <option value="">Birim Seçin (isteğe bağlı)</option>
+                        {units.filter((u) => u.isActive).map((unit) => (
+                          <option key={unit.id} value={unit.id}>{unit.name} ({unit.code})</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+                    <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Kaydediliyor..." : "Personel Ekle"}</button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer className="footer">
         <strong>Mersin Üniversitesi</strong> — Dilek ve Öneri Yönetim

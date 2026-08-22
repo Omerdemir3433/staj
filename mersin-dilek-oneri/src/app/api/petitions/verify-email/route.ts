@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { deliverEmail } from "@/services/email-delivery";
 import {
   hashEmailVerificationToken,
   isEmailVerificationTokenExpired,
@@ -240,9 +241,8 @@ export async function POST(request: NextRequest) {
           });
 
           /*
-           * E-posta doğrulamasından sonra gönderilecek
-           * bilgilendirme mesajı kuyruğa eklenir.
-           * Açık doğrulama tokenı payload içine yazılmaz.
+           * E-posta doğrulamasından sonra bildirim kuyruğuna
+           * eklenir (yedek/audit purposes için).
            */
           await transaction.notificationOutbox.create({
             data: {
@@ -269,6 +269,57 @@ export async function POST(request: NextRequest) {
           return updatedPetition;
         }
       );
+
+    /*
+     * Doğrulama sonrası bilgilendirme e-postası
+     * doğrudan gönderilir; outbox worker'ına bağımlı
+     * değildir.
+     */
+    const applicantName =
+      `${verifiedPetition.applicantFirstName} ${verifiedPetition.applicantLastName}`;
+
+    const emailResult = await deliverEmail({
+      to: verifiedPetition.applicantEmail,
+      subject:
+        "Mersin Üniversitesi Başvurunuz Alındı",
+      text: [
+        `Sayın ${applicantName},`,
+        "",
+        "E-posta doğrulamanız tamamlandı ve başvurunuz kuruma iletildi.",
+        "",
+        `Başvuru takip kodunuz: ${verifiedPetition.trackingCode}`,
+        "",
+        "Takip kodunuzu güvenli bir yerde saklayın.",
+        "Başvurunuzun güncel durumunu aşağıdaki adresten takip edebilirsiniz:",
+        "",
+        `${process.env.APP_URL || "http://localhost:3000"}/basvuru-takip`,
+      ].join("\n"),
+    });
+
+    if (!emailResult.success) {
+      console.error(
+        "Bilgilendirme e-postası gönderilemedi:",
+        emailResult.error
+      );
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        actorType: "SYSTEM",
+        action: "NOTIFY",
+        entityType: "PETITION",
+        entityId: String(verifiedPetition.id),
+        metadata: {
+          notificationType: "PETITION_RECEIVED",
+          provider: emailResult.provider,
+          sentDirectly: true,
+        },
+        success: emailResult.success,
+        errorMessage: emailResult.success
+          ? undefined
+          : emailResult.error || "E-posta gönderilemedi.",
+      },
+    });
 
     return NextResponse.json({
       success: true,

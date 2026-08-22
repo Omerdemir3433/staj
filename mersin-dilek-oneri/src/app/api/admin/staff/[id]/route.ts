@@ -61,6 +61,15 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
     const body = (await request.json()) as Record<string, unknown>;
 
+    if (adminUser.id === staffId) {
+      if (typeof body.role === "string" && body.role !== undefined) {
+        return NextResponse.json({ success: false, error: "Kendi rolünüzü değiştiremezsiniz." }, { status: 403, headers: createNoStoreHeaders() });
+      }
+      if (typeof body.isActive === "boolean" && !body.isActive) {
+        return NextResponse.json({ success: false, error: "Kendi hesabınızı pasif yapamazsınız." }, { status: 403, headers: createNoStoreHeaders() });
+      }
+    }
+
     const updateData: Record<string, unknown> = {};
 
     if (typeof body.firstName === "string") {
@@ -92,8 +101,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     }
 
     if (typeof body.password === "string" && body.password) {
-      if ((body.password as string).length < 6) {
-        return NextResponse.json({ success: false, error: "Şifre en az 6 karakter olmalıdır." }, { status: 400, headers: createNoStoreHeaders() });
+      if ((body.password as string).length < 8) {
+        return NextResponse.json({ success: false, error: "Şifre en az 8 karakter olmalıdır." }, { status: 400, headers: createNoStoreHeaders() });
+      }
+      if (!/[A-Z]/.test(body.password as string) || !/[a-z]/.test(body.password as string) || !/[0-9]/.test(body.password as string) || !/[^A-Za-z0-9]/.test(body.password as string)) {
+        return NextResponse.json({ success: false, error: "Şifre en az bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter içermelidir." }, { status: 400, headers: createNoStoreHeaders() });
       }
       updateData.passwordHash = await bcrypt.hash(body.password as string, 12);
     }
