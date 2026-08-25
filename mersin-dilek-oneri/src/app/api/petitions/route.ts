@@ -6,7 +6,10 @@ import { generateTrackingCode } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { verifyCaptcha } from "@/services/captcha-verification";
 import { deliverEmail } from "@/services/email-delivery";
-import { createEmailVerificationToken } from "@/services/email-verification-token";
+import {
+  createEmailVerificationCode,
+  createEmailVerificationToken,
+} from "@/services/email-verification-token";
 import { verifyIdentity } from "@/services/identity-verification";
 
 import type {
@@ -212,27 +215,38 @@ export async function GET(request: NextRequest) {
     }
 
     const staffUser = session.user;
+    const isAdminStaff = staffUser.role === "ADMIN";
+    const staffUnitId = staffUser.unitId ?? -1;
 
     const petitions = await prisma.petition.findMany({
-      where:
-        staffUser.role === "ADMIN"
-          ? {
-              emailVerifiedAt: {
-                not: null,
-              },
-              status: {
-                not: "EMAIL_PENDING",
-              },
-            }
-          : {
-              targetUnitId: staffUser.unitId ?? -1,
-              emailVerifiedAt: {
-                not: null,
-              },
-              status: {
-                not: "EMAIL_PENDING",
-              },
+      where: isAdminStaff
+        ? {
+            emailVerifiedAt: {
+              not: null,
             },
+            status: {
+              not: "EMAIL_PENDING",
+            },
+          }
+        : {
+            OR: [
+              { targetUnitId: staffUnitId },
+              {
+                supportRequests: {
+                  some: {
+                    status: "ACCEPTED",
+                    supportUnitId: staffUnitId,
+                  },
+                },
+              },
+            ],
+            emailVerifiedAt: {
+              not: null,
+            },
+            status: {
+              not: "EMAIL_PENDING",
+            },
+          },
       select: {
         id: true,
         trackingCode: true,
@@ -266,6 +280,17 @@ export async function GET(request: NextRequest) {
             lastName: true,
           },
         },
+        ...(isAdminStaff
+          ? {}
+          : {
+              supportRequests: {
+                where: {
+                  status: "ACCEPTED",
+                  supportUnitId: staffUnitId,
+                },
+                select: { id: true },
+              },
+            }),
       },
       orderBy: {
         createdAt: "desc",
@@ -273,9 +298,20 @@ export async function GET(request: NextRequest) {
       take,
     });
 
+    const serializedPetitions = petitions.map((petition) => {
+      if (isAdminStaff || !("supportRequests" in petition)) {
+        return petition;
+      }
+      const { supportRequests, ...rest } = petition;
+      return {
+        ...rest,
+        isSupportAssignment: supportRequests.length > 0,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      petitions,
+      petitions: serializedPetitions,
     });
   } catch (error) {
     console.error(
@@ -511,6 +547,9 @@ export async function POST(request: NextRequest) {
     const verificationToken =
       createEmailVerificationToken();
 
+    const verificationCode =
+      createEmailVerificationCode();
+
     const petition = await prisma.$transaction(
       async (transaction) => {
         const createdPetition =
@@ -547,6 +586,14 @@ export async function POST(request: NextRequest) {
             petitionId: createdPetition.id,
             tokenHash: verificationToken.tokenHash,
             expiresAt: verificationToken.expiresAt,
+          },
+        });
+
+        await transaction.emailVerificationToken.create({
+          data: {
+            petitionId: createdPetition.id,
+            tokenHash: verificationCode.codeHash,
+            expiresAt: verificationCode.expiresAt,
           },
         });
 
@@ -603,14 +650,30 @@ export async function POST(request: NextRequest) {
       text: [
         `Sayın ${firstName} ${lastName},`,
         "",
-        "Başvurunuzu tamamlamak için aşağıdaki bağlantıyı açın:",
+        "Başvurunuzu tamamlamak için doğrulama kodunuz:",
+        "",
+        `    ${verificationCode.rawCode}`,
+        "",
+        `Kodu başvuru sayfasında girerek e-posta adresinizi doğrulayabilir veya aşağıdaki bağlantıyı açabilirsiniz:`,
         verificationUrl,
         "",
-        "Bu bağlantı 30 dakika süreyle geçerlidir.",
+        "Doğrulama kodu ve bağlantı 30 dakika süreyle geçerlidir.",
       ].join("\n"),
     });
 
     if (!emailResult.success) {
+      /*
+       * E-posta doğrulaması olmadan hiçbir başvuru
+       * sistemde tutulmaz. Gönderim başarısızsa
+       * oluşturulan taslak başvuru geri alınır.
+       */
+      await prisma.petition.delete({
+        where: {
+          id: petition.id,
+          status: "EMAIL_PENDING",
+        },
+      });
+
       await prisma.auditLog.create({
         data: {
           actorType: "SYSTEM",
@@ -620,11 +683,13 @@ export async function POST(request: NextRequest) {
           metadata: {
             notificationType:
               "EMAIL_VERIFICATION",
+            rolledBack: true,
+            reason: "EMAIL_DELIVERY_FAILED",
           },
           success: false,
           errorMessage:
             emailResult.error ||
-            "E-posta gönderimi gerçekleştirilemedi.",
+            "E-posta gönderimi gerçekleştirilemediği için başvuru geri alındı.",
         },
       });
 
@@ -632,7 +697,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error:
-            "Başvuru oluşturuldu ancak doğrulama e-postası gönderilemedi.",
+            "Doğrulama e-postası gönderilemedi. Başvurunuz kaydedilmedi; lütfen e-posta adresinizi kontrol ederek yeniden deneyin.",
         },
         { status: 503 }
       );
@@ -656,10 +721,15 @@ export async function POST(request: NextRequest) {
     const response: CreatePetitionSuccessResponse = {
       success: true,
       message:
-        "Başvurunuz oluşturuldu. Devam etmek için e-posta adresinize gönderilen doğrulama bağlantısını açın.",
+        "Başvurunuz oluşturuldu. Devam etmek için e-posta adresinize gönderilen doğrulama kodunu girin.",
       verificationRequired: true,
       ...(process.env.NODE_ENV !== "production"
-        ? { developmentVerificationUrl: verificationUrl }
+        ? {
+            developmentVerificationUrl:
+              verificationUrl,
+            developmentCode:
+              verificationCode.rawCode,
+          }
         : {}),
     };
 

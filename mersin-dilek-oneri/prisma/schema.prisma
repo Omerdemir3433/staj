@@ -272,6 +272,9 @@ model EmailVerificationToken {
   // Tokenın açık hâli değil, SHA-256 özeti tutulacak.
   tokenHash String @unique @db.VarChar(64)
 
+  // 6 haneli kod girişinde kaba kuvvet denemelerini sınırlar.
+  attempts Int @default(0)
+
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())

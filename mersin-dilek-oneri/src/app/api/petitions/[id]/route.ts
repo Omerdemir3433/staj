@@ -160,6 +160,13 @@ export async function GET(
           createdByStaffId: true,
           emailVerifiedAt: true,
           status: true,
+          supportRequests: {
+            where: {
+              status: "ACCEPTED",
+              supportUnitId: staffUser.unitId ?? -1,
+            },
+            select: { id: true },
+          },
         },
       });
 
@@ -182,7 +189,9 @@ export async function GET(
         staffUser.unitId ===
           petitionAccessInformation.targetUnitId) ||
       petitionAccessInformation.createdByStaffId ===
-        staffUser.id;
+        staffUser.id ||
+      petitionAccessInformation.supportRequests.length >
+        0;
 
     if (!canAccessPetition) {
       await prisma.auditLog.create({

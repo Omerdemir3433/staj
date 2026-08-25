@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import { deliverEmail } from "@/services/email-delivery";
 import {
   hashEmailVerificationToken,
   isEmailVerificationTokenExpired,
 } from "@/services/email-verification-token";
+import {
+  VerificationConflictError,
+  completePetitionEmailVerification,
+} from "@/services/petition-email-verification";
 
 interface VerifyEmailRequestBody {
   token?: unknown;
@@ -14,13 +17,6 @@ interface VerifyEmailRequestBody {
 interface RequestInformation {
   ipAddress?: string;
   userAgent?: string;
-}
-
-class VerificationConflictError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "VerificationConflictError";
-  }
 }
 
 function getRequestInformation(
@@ -71,18 +67,13 @@ export async function POST(request: NextRequest) {
         },
         select: {
           id: true,
-          petitionId: true,
           expiresAt: true,
           usedAt: true,
           petition: {
             select: {
-              id: true,
               trackingCode: true,
-              applicantFirstName: true,
-              applicantLastName: true,
-              applicantEmail: true,
-              emailVerifiedAt: true,
               status: true,
+              emailVerifiedAt: true,
             },
           },
         },
@@ -155,171 +146,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const now = new Date();
-
     const verifiedPetition =
-      await prisma.$transaction(
-        async (transaction) => {
-          /*
-           * Aynı doğrulama bağlantısının eş zamanlı olarak
-           * birden fazla kez kullanılmasını engeller.
-           */
-          const claimedToken =
-            await transaction.emailVerificationToken.updateMany(
-              {
-                where: {
-                  id: tokenRecord.id,
-                  usedAt: null,
-                  expiresAt: {
-                    gt: now,
-                  },
-                },
-                data: {
-                  usedAt: now,
-                },
-              }
-            );
-
-          if (claimedToken.count !== 1) {
-            throw new VerificationConflictError(
-              "Doğrulama bağlantısı kullanılmış veya süresi dolmuş."
-            );
-          }
-
-          const updatedPetition =
-            await transaction.petition.update({
-              where: {
-                id: tokenRecord.petitionId,
-              },
-              data: {
-                emailVerifiedAt: now,
-                status: "RECEIVED",
-              },
-              select: {
-                id: true,
-                trackingCode: true,
-                status: true,
-                applicantEmail: true,
-                applicantFirstName: true,
-                applicantLastName: true,
-              },
-            });
-
-          await transaction.petitionStatusHistory.create({
-            data: {
-              petitionId: updatedPetition.id,
-              fromStatus: "EMAIL_PENDING",
-              toStatus: "RECEIVED",
-              note:
-                "Başvuru sahibinin e-posta adresi doğrulandı ve başvuru kuruma iletildi.",
-            },
-          });
-
-          await transaction.auditLog.create({
-            data: {
-              actorType: "APPLICANT",
-              action: "VERIFY",
-              entityType: "PETITION",
-              entityId: String(updatedPetition.id),
-              oldValues: {
-                status: "EMAIL_PENDING",
-                emailVerified: false,
-              },
-              newValues: {
-                status: "RECEIVED",
-                emailVerified: true,
-              },
-              metadata: {
-                verificationType: "EMAIL",
-              },
-              ipAddress:
-                requestInformation.ipAddress,
-              userAgent:
-                requestInformation.userAgent,
-              success: true,
-            },
-          });
-
-          /*
-           * E-posta doğrulamasından sonra bildirim kuyruğuna
-           * eklenir (yedek/audit purposes için).
-           */
-          await transaction.notificationOutbox.create({
-            data: {
-              petitionId: updatedPetition.id,
-              type: "PETITION_RECEIVED",
-              recipientEmail:
-                updatedPetition.applicantEmail,
-              subject:
-                "Mersin Üniversitesi Başvurunuz Alındı",
-              payload: {
-                applicantName:
-                  `${updatedPetition.applicantFirstName} ` +
-                  updatedPetition.applicantLastName,
-                trackingCode:
-                  updatedPetition.trackingCode,
-                status: "RECEIVED",
-              },
-              status: "PENDING",
-              deduplicationKey:
-                `petition-received:${updatedPetition.id}`,
-            },
-          });
-
-          return updatedPetition;
-        }
+      await completePetitionEmailVerification(
+        tokenRecord.id,
+        requestInformation
       );
-
-    /*
-     * Doğrulama sonrası bilgilendirme e-postası
-     * doğrudan gönderilir; outbox worker'ına bağımlı
-     * değildir.
-     */
-    const applicantName =
-      `${verifiedPetition.applicantFirstName} ${verifiedPetition.applicantLastName}`;
-
-    const emailResult = await deliverEmail({
-      to: verifiedPetition.applicantEmail,
-      subject:
-        "Mersin Üniversitesi Başvurunuz Alındı",
-      text: [
-        `Sayın ${applicantName},`,
-        "",
-        "E-posta doğrulamanız tamamlandı ve başvurunuz kuruma iletildi.",
-        "",
-        `Başvuru takip kodunuz: ${verifiedPetition.trackingCode}`,
-        "",
-        "Takip kodunuzu güvenli bir yerde saklayın.",
-        "Başvurunuzun güncel durumunu aşağıdaki adresten takip edebilirsiniz:",
-        "",
-        `${process.env.APP_URL || "http://localhost:3000"}/basvuru-takip`,
-      ].join("\n"),
-    });
-
-    if (!emailResult.success) {
-      console.error(
-        "Bilgilendirme e-postası gönderilemedi:",
-        emailResult.error
-      );
-    }
-
-    await prisma.auditLog.create({
-      data: {
-        actorType: "SYSTEM",
-        action: "NOTIFY",
-        entityType: "PETITION",
-        entityId: String(verifiedPetition.id),
-        metadata: {
-          notificationType: "PETITION_RECEIVED",
-          provider: emailResult.provider,
-          sentDirectly: true,
-        },
-        success: emailResult.success,
-        errorMessage: emailResult.success
-          ? undefined
-          : emailResult.error || "E-posta gönderilemedi.",
-      },
-    });
 
     return NextResponse.json({
       success: true,

@@ -97,6 +97,7 @@ export interface CreatePetitionSuccessResponse {
   message: string;
   verificationRequired: true;
   developmentVerificationUrl?: string;
+  developmentCode?: string;
 }
 
 export interface AuthenticatedCreatePetitionRequest {

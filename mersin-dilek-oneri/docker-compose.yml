@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "1234"
+      POSTGRES_DB: mersin_dilek_oneri
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://postgres:1234@db:5432/mersin_dilek_oneri?schema=public"
+      JWT_SECRET: "${JWT_SECRET:-a3f7b2c9e1d4f6a8b5c0e2d7f9a1b3c6e8d2f4a7b0c3e5d9f1a4b7c2e6d8f0a3}"
+      NEXTAUTH_SECRET: "${NEXTAUTH_SECRET:-f1a4b7c2e6d8f0a3c9e2d5f8b1a6c3e7d0f4b9a2c5e8d1f6b3a0c7e4d9f2b5a8}"
+      NEXTAUTH_URL: "http://localhost:3000"
+      APP_URL: "http://localhost:3000"
+      SEED_ADMIN_PASSWORD: "admin1234"
+      EMAIL_PROVIDER: "resend"
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      EMAIL_FROM: "Mersin Dilek Oneri <onboarding@resend.dev>"
+      NODE_ENV: "production"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

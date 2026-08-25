@@ -53,6 +53,8 @@ export interface Petition {
     firstName: string;
     lastName: string;
   } | null;
+  /** Oturum sahibinin birimi bu başvuruya destek birimi olarak atandıysa true. */
+  isSupportAssignment?: boolean;
 }
 
 export interface StaffMember {

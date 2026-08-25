@@ -73,23 +73,6 @@ export async function GET(
         assignedStaff: {
           select: { id: true, firstName: true, lastName: true },
         },
-        notes: {
-          select: {
-            id: true,
-            content: true,
-            createdAt: true,
-            updatedAt: true,
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                role: true,
-              },
-            },
-          },
-          orderBy: { createdAt: "asc" },
-        },
         responses: {
           select: {
             id: true,
@@ -109,30 +92,6 @@ export async function GET(
           },
           orderBy: { createdAt: "asc" },
           where: { visibility: "APPLICANT" },
-        },
-        supportRequests: {
-          select: {
-            id: true,
-            message: true,
-            status: true,
-            createdAt: true,
-            resolvedAt: true,
-            requestedBy: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                role: true,
-              },
-            },
-            supportUnit: {
-              select: { id: true, code: true, name: true },
-            },
-            resolvedBy: {
-              select: { id: true, firstName: true, lastName: true },
-            },
-          },
-          orderBy: { createdAt: "desc" },
         },
         statusHistory: {
           select: {

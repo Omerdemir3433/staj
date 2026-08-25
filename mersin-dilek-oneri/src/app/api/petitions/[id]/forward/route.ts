@@ -386,6 +386,23 @@ export async function POST(
           },
         });
 
+        // Başvuru birimi değiştiği için bekleyen veya kabul edilmiş
+        // destek taleplerini kapat; eski birimin desteği anlamsızlaşır.
+        await transaction.supportRequest.updateMany({
+          where: {
+            petitionId,
+            status: {
+              in: ["PENDING", "ACCEPTED"],
+            },
+          },
+          data: {
+            status: "REJECTED",
+            supportUnitId: null,
+            resolvedById: currentStaff.id,
+            resolvedAt: forwardingDate,
+          },
+        });
+
         await transaction.petitionAssignment.create({
           data: {
             petitionId,

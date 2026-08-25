@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 
 export interface EmailVerificationTokenData {
   rawToken: string;
@@ -86,4 +86,58 @@ export function isEmailVerificationTokenExpired(
   }
 
   return expiresAt.getTime() <= now.getTime();
+}
+
+export interface EmailVerificationCodeData {
+  rawCode: string;
+  codeHash: string;
+  expiresAt: Date;
+}
+
+const CODE_LENGTH = 6;
+const CODE_EXPIRATION_MINUTES = 30;
+
+/**
+ * E-posta ile gönderilecek 6 haneli doğrulama kodu üretir.
+ *
+ * Kaba kuvvet saldırılarına karşı:
+ * - Veritabanında yalnızca SHA-256 özeti tutulur.
+ * - Doğrulama endpoint'i deneme sayacını sınırlar
+ *   (EmailVerificationToken.attempts).
+ */
+export function createEmailVerificationCode(): EmailVerificationCodeData {
+  const min = 10 ** (CODE_LENGTH - 1);
+  const max = 10 ** CODE_LENGTH - 1;
+
+  const randomValue = randomInt(
+    min,
+    max + 1
+  );
+
+  const rawCode = String(randomValue);
+  const codeHash =
+    hashEmailVerificationToken(rawCode);
+
+  const expiresAt = new Date(
+    Date.now() +
+      CODE_EXPIRATION_MINUTES * 60 * 1000
+  );
+
+  return {
+    rawCode,
+    codeHash,
+    expiresAt,
+  };
+}
+
+/**
+ * Girilen kodun biçimsel olarak geçerli olup olmadığını kontrol eder.
+ */
+export function isValidEmailVerificationCode(
+  code: string
+): boolean {
+  return (
+    code.length === CODE_LENGTH &&
+    /^\d+$/.test(code)
+  );
 }

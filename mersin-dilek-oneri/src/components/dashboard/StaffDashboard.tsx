@@ -515,6 +515,20 @@ function PetitionCard({
             {STATUS_LABELS[petition.status]}
           </span>
           <span className="cat-badge">{petition.category.name}</span>
+          {petition.isSupportAssignment && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                padding: "4px 10px",
+                borderRadius: 12,
+                background: "var(--warning-bg, #fef3c7)",
+                color: "#92400e",
+              }}
+            >
+              🤝 Destek Birimi
+            </span>
+          )}
           <span>
             {petition.applicantFirstName} {petition.applicantLastName}
           </span>
