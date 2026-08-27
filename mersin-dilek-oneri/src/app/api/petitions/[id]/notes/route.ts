@@ -46,9 +46,26 @@ async function checkPetitionAccess(petitionId: number, staffRole: string, staffU
   if (!petition.emailVerifiedAt || petition.status === "EMAIL_PENDING") {
     return { error: "E-posta doğrulaması tamamlanmamış başvuru.", status: 409 as const };
   }
-  if (staffRole !== "ADMIN" && (staffUnitId === null || staffUnitId !== petition.targetUnitId)) {
+
+  const isOwnerUnit = staffRole === "ADMIN" || (staffUnitId !== null && staffUnitId === petition.targetUnitId);
+  if (isOwnerUnit) {
+    return { petition };
+  }
+
+  // Atanan destek birimi: görüntüleme ve not eklemeye izinli.
+  const supportAssignment = await prisma.supportRequest.findFirst({
+    where: {
+      petitionId,
+      status: "ACCEPTED",
+      supportUnitId: staffUnitId ?? -1,
+    },
+    select: { id: true },
+  });
+
+  if (!supportAssignment) {
     return { error: "Bu başvuruya erişim yetkiniz yok.", status: 403 as const };
   }
+
   return { petition };
 }
 

@@ -52,6 +52,8 @@ export default function AdminUnitsPage() {
   const [actionUnitId, setActionUnitId] =
     useState<number | null>(null);
 
+  const [showFormModal, setShowFormModal] = useState(false);
+
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] =
     useState("");
@@ -153,6 +155,7 @@ export default function AdminUnitsPage() {
   const resetForm = () => {
     setEditingUnit(null);
     setFormData(EMPTY_FORM);
+    setShowFormModal(false);
   };
 
   const handleEdit = (unit: Unit) => {
@@ -167,10 +170,7 @@ export default function AdminUnitsPage() {
       description: unit.description ?? "",
     });
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    setShowFormModal(true);
   };
 
   const handleCancelEdit = () => {
@@ -338,149 +338,20 @@ export default function AdminUnitsPage() {
           </div>
         )}
 
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-6 py-5">
-            <h2 className="text-xl font-semibold text-slate-950">
-              {editingUnit
-                ? "✏️ Birimi Düzenle"
-                : "➕ Yeni Birim"}
-            </h2>
-          </div>
-
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-6 p-6"
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => {
+              clearMessages();
+              setEditingUnit(null);
+              setFormData(EMPTY_FORM);
+              setShowFormModal(true);
+            }}
+            className="rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white transition hover:bg-blue-800"
           >
-            <div className="grid gap-5 md:grid-cols-2">
-              <div>
-                <label
-                  htmlFor="unit-code"
-                  className="mb-2 block text-sm font-semibold text-slate-700"
-                >
-                  Birim Kodu
-                </label>
-
-                <input
-                  id="unit-code"
-                  type="text"
-                  required
-                  maxLength={50}
-                  value={formData.code}
-                  onChange={(event) =>
-                    handleInputChange(
-                      "code",
-                      event.target.value
-                    )
-                  }
-                  placeholder="Örn. MUHENDISLIK"
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="unit-name"
-                  className="mb-2 block text-sm font-semibold text-slate-700"
-                >
-                  Birim Adı
-                </label>
-
-                <input
-                  id="unit-name"
-                  type="text"
-                  required
-                  maxLength={200}
-                  value={formData.name}
-                  onChange={(event) =>
-                    handleInputChange(
-                      "name",
-                      event.target.value
-                    )
-                  }
-                  placeholder="Örn. Mühendislik Fakültesi"
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="unit-email"
-                className="mb-2 block text-sm font-semibold text-slate-700"
-              >
-                Birim E-posta
-              </label>
-
-              <input
-                id="unit-email"
-                type="email"
-                maxLength={255}
-                value={formData.email}
-                onChange={(event) =>
-                  handleInputChange(
-                    "email",
-                    event.target.value
-                  )
-                }
-                placeholder="Örn. muhendislik@mersin.edu.tr"
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              />
-
-              <p className="mt-2 text-xs text-slate-500">
-                Birime ait e-posta adresi yoksa boş
-                bırakılabilir.
-              </p>
-            </div>
-
-            <div>
-              <label
-                htmlFor="unit-description"
-                className="mb-2 block text-sm font-semibold text-slate-700"
-              >
-                Açıklama
-              </label>
-
-              <textarea
-                id="unit-description"
-                rows={5}
-                value={formData.description}
-                onChange={(event) =>
-                  handleInputChange(
-                    "description",
-                    event.target.value
-                  )
-                }
-                placeholder="Birim hakkında kısa açıklama..."
-                className="w-full resize-y rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
-
-            <div className="flex flex-wrap justify-end gap-3">
-              {editingUnit && (
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  disabled={saving}
-                  className="rounded-lg border border-slate-300 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  İptal
-                </button>
-              )}
-
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {saving
-                  ? "Kaydediliyor..."
-                  : editingUnit
-                    ? "Değişiklikleri Kaydet"
-                    : "Birim Ekle"}
-              </button>
-            </div>
-          </form>
-        </section>
+            ➕ Yeni Birim Ekle
+          </button>
+        </div>
 
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 px-6 py-5">
@@ -585,6 +456,93 @@ export default function AdminUnitsPage() {
           </div>
         </section>
       </div>
+
+      {showFormModal && (
+        <div className="modal-overlay" onClick={handleCancelEdit}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">
+                {editingUnit ? "✏️ Birimi Düzenle" : "➕ Yeni Birim"}
+              </span>
+              <button className="modal-close" onClick={handleCancelEdit}>×</button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={handleSubmit}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="unit-code">Birim Kodu</label>
+                    <input
+                      id="unit-code"
+                      className="form-control"
+                      type="text"
+                      required
+                      maxLength={50}
+                      value={formData.code}
+                      onChange={(event) => handleInputChange("code", event.target.value)}
+                      placeholder="Örn. MUHENDISLIK"
+                      disabled={saving}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="unit-name">Birim Adı</label>
+                    <input
+                      id="unit-name"
+                      className="form-control"
+                      type="text"
+                      required
+                      maxLength={200}
+                      value={formData.name}
+                      onChange={(event) => handleInputChange("name", event.target.value)}
+                      placeholder="Örn. Mühendislik Fakültesi"
+                      disabled={saving}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="unit-email">Birim E-posta</label>
+                  <input
+                    id="unit-email"
+                    className="form-control"
+                    type="email"
+                    maxLength={255}
+                    value={formData.email}
+                    onChange={(event) => handleInputChange("email", event.target.value)}
+                    placeholder="Örn. muhendislik@mersin.edu.tr"
+                    disabled={saving}
+                  />
+                  <p style={{ marginTop: 4, fontSize: 12, color: "var(--text-muted)" }}>
+                    Birime ait e-posta adresi yoksa boş bırakılabilir.
+                  </p>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="unit-description">Açıklama</label>
+                  <textarea
+                    id="unit-description"
+                    className="form-control"
+                    rows={4}
+                    value={formData.description}
+                    onChange={(event) => handleInputChange("description", event.target.value)}
+                    placeholder="Birim hakkında kısa açıklama..."
+                    disabled={saving}
+                  />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+                  <button type="button" className="btn btn-ghost" disabled={saving} onClick={handleCancelEdit}>
+                    İptal
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                    {saving ? "Kaydediliyor..." : editingUnit ? "Değişiklikleri Kaydet" : "Birim Ekle"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

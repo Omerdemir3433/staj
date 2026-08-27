@@ -65,6 +65,7 @@ export default function UnitStaffPage() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [form, setForm] = useState<StaffFormData>(EMPTY_FORM);
+  const [showFormModal, setShowFormModal] = useState(false);
 
   const clearMessages = () => {
     setError("");
@@ -146,6 +147,7 @@ export default function UnitStaffPage() {
 
   const resetForm = () => {
     setForm(EMPTY_FORM);
+    setShowFormModal(false);
   };
 
   const handleSubmit = async (
@@ -356,121 +358,17 @@ export default function UnitStaffPage() {
           </div>
         )}
 
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div className="card-header">
-            <span className="card-title">➕ Yeni Personel Ekle</span>
-          </div>
-
-          <div className="card-body">
-            <form onSubmit={handleSubmit}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: 14,
-                }}
-              >
-                <div className="form-group">
-                  <label className="form-label" htmlFor="firstName">
-                    Ad
-                  </label>
-                  <input
-                    id="firstName"
-                    className="form-control"
-                    type="text"
-                    value={form.firstName}
-                    onChange={(event) =>
-                      handleInputChange("firstName", event.target.value)
-                    }
-                    placeholder="Ad"
-                    maxLength={100}
-                    disabled={saving}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" htmlFor="lastName">
-                    Soyad
-                  </label>
-                  <input
-                    id="lastName"
-                    className="form-control"
-                    type="text"
-                    value={form.lastName}
-                    onChange={(event) =>
-                      handleInputChange("lastName", event.target.value)
-                    }
-                    placeholder="Soyad"
-                    maxLength={100}
-                    disabled={saving}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" htmlFor="email">
-                    E-posta
-                  </label>
-                  <input
-                    id="email"
-                    className="form-control"
-                    type="email"
-                    value={form.email}
-                    onChange={(event) =>
-                      handleInputChange("email", event.target.value)
-                    }
-                    placeholder="ornek@mersin.edu.tr"
-                    maxLength={255}
-                    disabled={saving}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" htmlFor="password">
-                    Şifre
-                  </label>
-                  <input
-                    id="password"
-                    className="form-control"
-                    type="password"
-                    value={form.password}
-                    onChange={(event) =>
-                      handleInputChange("password", event.target.value)
-                    }
-                    placeholder="En az 6 karakter"
-                    minLength={6}
-                    disabled={saving}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" htmlFor="role">
-                    Rol
-                  </label>
-                  <select
-                    id="role"
-                    className="form-control"
-                    value={form.role}
-                    onChange={(event) =>
-                      handleInputChange(
-                        "role",
-                        event.target.value as "UNIT_MANAGER" | "UNIT_STAFF"
-                      )
-                    }
-                    disabled={saving}
-                  >
-                    <option value="UNIT_STAFF">Birim Personeli</option>
-                    <option value="UNIT_MANAGER">Birim Yöneticisi</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? "Kaydediliyor..." : "Personel Ekle"}
-                </button>
-              </div>
-            </form>
-          </div>
+        <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              resetForm();
+              setShowFormModal(true);
+            }}
+          >
+            ➕ Yeni Personel Ekle
+          </button>
         </div>
 
         <div className="card">
@@ -589,6 +487,51 @@ export default function UnitStaffPage() {
             </div>
           </div>
         </div>
+
+        {showFormModal && (
+          <div className="modal-overlay" onClick={resetForm}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <span className="modal-title">➕ Yeni Personel Ekle</span>
+                <button className="modal-close" onClick={resetForm}>×</button>
+              </div>
+              <div className="modal-body">
+                <form onSubmit={handleSubmit}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="firstName">Ad</label>
+                      <input id="firstName" className="form-control" type="text" value={form.firstName} onChange={(event) => handleInputChange("firstName", event.target.value)} placeholder="Ad" maxLength={100} disabled={saving} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="lastName">Soyad</label>
+                      <input id="lastName" className="form-control" type="text" value={form.lastName} onChange={(event) => handleInputChange("lastName", event.target.value)} placeholder="Soyad" maxLength={100} disabled={saving} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="email">E-posta</label>
+                      <input id="email" className="form-control" type="email" value={form.email} onChange={(event) => handleInputChange("email", event.target.value)} placeholder="ornek@mersin.edu.tr" maxLength={255} disabled={saving} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="password">Şifre</label>
+                      <input id="password" className="form-control" type="password" value={form.password} onChange={(event) => handleInputChange("password", event.target.value)} placeholder="En az 6 karakter" minLength={6} disabled={saving} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="role">Rol</label>
+                      <select id="role" className="form-control" value={form.role} onChange={(event) => handleInputChange("role", event.target.value as "UNIT_MANAGER" | "UNIT_STAFF")} disabled={saving}>
+                        <option value="UNIT_STAFF">Birim Personeli</option>
+                        <option value="UNIT_MANAGER">Birim Yöneticisi</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
+                    <button type="submit" className="btn btn-primary" disabled={saving}>
+                      {saving ? "Kaydediliyor..." : "Personel Ekle"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

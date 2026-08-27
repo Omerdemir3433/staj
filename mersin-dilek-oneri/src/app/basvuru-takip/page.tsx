@@ -2,9 +2,13 @@
 
 import {
   FormEvent,
+  Suspense,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
+import { useSearchParams } from "next/navigation";
 
 type PetitionCategory =
   | "TALEP"
@@ -115,20 +119,10 @@ function normalizeTrackingCode(
     .slice(0, 24);
 }
 
-function normalizeEmail(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-    email
-  );
-}
-
-export default function PetitionTrackingPage() {
+function PetitionTrackingContent() {
+  const searchParams = useSearchParams();
   const [trackingCode, setTrackingCode] =
     useState("");
-  const [email, setEmail] = useState("");
   const [petition, setPetition] =
     useState<PetitionTrackingData | null>(
       null
@@ -136,58 +130,34 @@ export default function PetitionTrackingPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] =
     useState(false);
+  const autoSearchDone = useRef(false);
 
   const canSubmit = useMemo(() => {
     return (
       trackingCode.trim().length >= 6 &&
-      isValidEmail(normalizeEmail(email)) &&
       !isLoading
     );
-  }, [trackingCode, email, isLoading]);
+  }, [trackingCode, isLoading]);
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
-  ) {
-    event.preventDefault();
+  async function doSearch(code: string) {
+    const normalized = normalizeTrackingCode(code);
 
-    setError("");
-    setPetition(null);
-
-    const normalizedTrackingCode =
-      normalizeTrackingCode(trackingCode);
-
-    const normalizedEmail =
-      normalizeEmail(email);
-
-    if (normalizedTrackingCode.length < 6) {
-      setError(
-        "Geçerli bir başvuru takip kodu girin."
-      );
-      return;
-    }
-
-    if (!isValidEmail(normalizedEmail)) {
-      setError(
-        "Geçerli bir e-posta adresi girin."
-      );
+    if (normalized.length < 6) {
+      setError("Geçerli bir başvuru takip kodu girin.");
       return;
     }
 
     setIsLoading(true);
+    setError("");
+    setPetition(null);
 
     try {
       const response = await fetch(
-        `/api/petitions/track/${encodeURIComponent(
-          normalizedTrackingCode
-        )}?email=${encodeURIComponent(
-          normalizedEmail
-        )}`,
+        `/api/petitions/track/${encodeURIComponent(normalized)}`,
         {
           method: "GET",
           cache: "no-store",
-          headers: {
-            Accept: "application/json",
-          },
+          headers: { Accept: "application/json" },
         }
       );
 
@@ -214,9 +184,25 @@ export default function PetitionTrackingPage() {
     }
   }
 
+  useEffect(() => {
+    const kod = searchParams.get("kod");
+    if (kod && !autoSearchDone.current) {
+      autoSearchDone.current = true;
+      const normalized = normalizeTrackingCode(kod);
+      setTrackingCode(normalized);
+      void doSearch(normalized);
+    }
+  }, [searchParams]);
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+    void doSearch(trackingCode);
+  }
+
   function handleReset() {
     setTrackingCode("");
-    setEmail("");
     setPetition(null);
     setError("");
   }
@@ -238,9 +224,9 @@ export default function PetitionTrackingPage() {
 
                 <p className="mt-3 text-sm leading-6 text-slate-600">
                   Başvurunuz için oluşturulan
-                  takip kodunu ve başvuru
-                  sırasında kullandığınız
-                  e-posta adresini girin.
+                  takip kodunu girerek
+                  başvurunuzun güncel durumunu
+                  görüntüleyebilirsiniz.
                 </p>
               </div>
 
@@ -272,31 +258,8 @@ export default function PetitionTrackingPage() {
                     autoComplete="off"
                     spellCheck={false}
                     maxLength={24}
-                    placeholder="Örnek: MRS-ABC123"
+                    placeholder="Örnek: MER2026ABC12345"
                     className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium uppercase text-slate-950 outline-none transition placeholder:normal-case placeholder:text-slate-400 focus:border-red-700 focus:ring-4 focus:ring-red-100"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="mb-2 block text-sm font-semibold text-slate-800"
-                  >
-                    E-posta adresi
-                  </label>
-
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={email}
-                    onChange={(event) =>
-                      setEmail(event.target.value)
-                    }
-                    autoComplete="email"
-                    maxLength={255}
-                    placeholder="ornek@eposta.com"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-red-700 focus:ring-4 focus:ring-red-100"
                   />
                 </div>
 
@@ -344,8 +307,7 @@ export default function PetitionTrackingPage() {
                   </h2>
 
                   <p className="mt-3 text-sm leading-6 text-slate-600">
-                    Takip kodu ve e-posta
-                    adresiniz eşleştiğinde
+                    Takip kodunuzu girdiğinizde
                     başvurunuzun güncel durumu,
                     birimi ve kurum tarafından
                     verilen cevaplar bu alanda
@@ -550,7 +512,7 @@ export default function PetitionTrackingPage() {
                   onClick={handleReset}
                   className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-red-700 hover:text-red-700"
                 >
-                  Başka Bir Başvuru Sorgula
+                   Başka Bir Başvuru Sorgula
                 </button>
               </div>
             )}
@@ -558,5 +520,21 @@ export default function PetitionTrackingPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function PetitionTrackingPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-gradient-to-b from-[#001f5c] to-[#003087]">
+          <section className="mx-auto flex min-h-[600px] w-full max-w-6xl items-center justify-center px-4 sm:px-6 lg:px-8">
+            <p className="text-white">Yükleniyor...</p>
+          </section>
+        </main>
+      }
+    >
+      <PetitionTrackingContent />
+    </Suspense>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Toast from "@/components/Toast";
 
 type SupportRequestStatus = "PENDING" | "ACCEPTED" | "REJECTED";
 type PetitionStatus =
@@ -90,8 +91,14 @@ export default function AdminDestekPaneliPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<Record<number, number>>({});
+
+  const [delegatingSr, setDelegatingSr] = useState<SupportRequest | null>(null);
+  const [delegateUnitId, setDelegateUnitId] = useState("");
+  const [delegateNote, setDelegateNote] = useState("");
+  const [forwardLoading, setForwardLoading] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -125,10 +132,14 @@ export default function AdminDestekPaneliPage() {
     void loadData();
   }, []);
 
+  function showToast(message: string, type: "success" | "error" | "info" = "info") {
+    setToast({ message, type });
+  }
+
   const handleAccept = async (sr: SupportRequest) => {
     const unitId = selectedUnitId[sr.id];
     if (!unitId) {
-      alert("Lütfen bir destek birimi seçin.");
+      showToast("Lütfen bir destek birimi seçin.", "error");
       return;
     }
 
@@ -151,7 +162,7 @@ export default function AdminDestekPaneliPage() {
       const data: ResolveResponse = await response.json();
 
       if (!data.success) {
-        alert(data.error || "İşlem başarısız.");
+        showToast(data.error || "İşlem başarısız.", "error");
         return;
       }
 
@@ -163,7 +174,7 @@ export default function AdminDestekPaneliPage() {
         )
       );
     } catch {
-      alert("İşlem sırasında bir hata oluştu.");
+      showToast("İşlem sırasında bir hata oluştu.", "error");
     } finally {
       setProcessingId(null);
     }
@@ -190,7 +201,7 @@ export default function AdminDestekPaneliPage() {
       const data: ResolveResponse = await response.json();
 
       if (!data.success) {
-        alert(data.error || "İşlem başarısız.");
+        showToast(data.error || "İşlem başarısız.", "error");
         return;
       }
 
@@ -202,9 +213,59 @@ export default function AdminDestekPaneliPage() {
         )
       );
     } catch {
-      alert("İşlem sırasında bir hata oluştu.");
+      showToast("İşlem sırasında bir hata oluştu.", "error");
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  const handleDelegate = async () => {
+    if (!delegatingSr) return;
+
+    const unitId = Number(delegateUnitId);
+    if (!unitId) {
+      showToast("Lütfen görevin devredileceği birimi seçin.", "error");
+      return;
+    }
+
+    const note = delegateNote.trim();
+    if (!note) {
+      showToast("Lütfen devir açıklaması girin.", "error");
+      return;
+    }
+
+    try {
+      setForwardLoading(true);
+
+      const response = await fetch(`/api/petitions/${delegatingSr.petition.id}/forward`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ targetUnitId: unitId, note }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        showToast(data.error || "Görev devredilemedi.", "error");
+        return;
+      }
+
+      // İlgili destek talebi forward API tarafından otomatik kapatılır.
+      setSupportRequests((previous) =>
+        previous.map((item) =>
+          item.id === delegatingSr.id ? { ...item, status: "REJECTED" as const } : item
+        )
+      );
+
+      showToast("Görev seçilen birime devredildi.", "success");
+      setDelegatingSr(null);
+      setDelegateUnitId("");
+      setDelegateNote("");
+    } catch {
+      showToast("İşlem sırasında bir hata oluştu.", "error");
+    } finally {
+      setForwardLoading(false);
     }
   };
 
@@ -433,6 +494,29 @@ export default function AdminDestekPaneliPage() {
                             >
                               Reddet
                             </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDelegatingSr(sr);
+                                setDelegateUnitId("");
+                                setDelegateNote("");
+                              }}
+                              disabled={processingId === sr.id}
+                              style={{
+                                padding: "8px 16px",
+                                borderRadius: "var(--radius)",
+                                border: "none",
+                                background: "#2563eb",
+                                color: "white",
+                                fontSize: 14,
+                                fontWeight: 600,
+                                cursor: processingId === sr.id ? "not-allowed" : "pointer",
+                                opacity: processingId === sr.id ? 0.5 : 1,
+                              }}
+                            >
+                              Devret
+                            </button>
                           </div>
                         </div>
                       </article>
@@ -532,6 +616,137 @@ export default function AdminDestekPaneliPage() {
           </>
         )}
       </main>
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {delegatingSr && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.5)",
+          }}
+          onClick={() => {
+            if (!forwardLoading) {
+              setDelegatingSr(null);
+              setDelegateUnitId("");
+              setDelegateNote("");
+            }
+          }}
+        >
+          <div
+            style={{
+              background: "var(--surface)",
+              borderRadius: "var(--radius)",
+              padding: 24,
+              width: "100%",
+              maxWidth: 480,
+              margin: 16,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 8px", fontSize: 18 }}>Görevi Başka Birime Devret</h3>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--text-muted)" }}>
+              <strong>{delegatingSr.petition.trackingCode}</strong> — {delegatingSr.petition.subject}
+              <br />
+              Başvuru seçtiğiniz birime atanır; destek talebi kapatılır.
+            </p>
+
+            <label style={{ display: "block", marginBottom: 8, fontSize: 14, fontWeight: 600 }}>
+              Hedef Birim
+            </label>
+            <select
+              value={delegateUnitId}
+              onChange={(e) => setDelegateUnitId(e.target.value)}
+              disabled={forwardLoading}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "var(--radius)",
+                border: "1px solid var(--border)",
+                fontSize: 14,
+                marginBottom: 16,
+                background: "white",
+                boxSizing: "border-box",
+              }}
+            >
+              <option value="">Birim seçin...</option>
+              {units
+                .filter((unit) => unit.id !== delegatingSr.petition.targetUnit.id)
+                .map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.name}
+                  </option>
+                ))}
+            </select>
+
+            <label style={{ display: "block", marginBottom: 8, fontSize: 14, fontWeight: 600 }}>
+              Devir Açıklaması
+            </label>
+            <textarea
+              value={delegateNote}
+              onChange={(e) => setDelegateNote(e.target.value)}
+              placeholder="Devir gerekçesini yazın..."
+              rows={4}
+              maxLength={2000}
+              disabled={forwardLoading}
+              style={{
+                width: "100%",
+                padding: 10,
+                borderRadius: "var(--radius)",
+                border: "1px solid var(--border)",
+                fontSize: 14,
+                resize: "vertical",
+                boxSizing: "border-box",
+              }}
+            />
+
+            <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setDelegatingSr(null);
+                  setDelegateUnitId("");
+                  setDelegateNote("");
+                }}
+                disabled={forwardLoading}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "var(--radius)",
+                  border: "1px solid var(--border)",
+                  background: "white",
+                  fontSize: 14,
+                  cursor: forwardLoading ? "not-allowed" : "pointer",
+                }}
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDelegate()}
+                disabled={forwardLoading || !delegateUnitId || !delegateNote.trim()}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "var(--radius)",
+                  border: "none",
+                  background: "#2563eb",
+                  color: "white",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: forwardLoading || !delegateUnitId || !delegateNote.trim() ? "not-allowed" : "pointer",
+                  opacity: forwardLoading || !delegateUnitId || !delegateNote.trim() ? 0.5 : 1,
+                }}
+              >
+                {forwardLoading ? "Devrediliyor..." : "Devret"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer className="footer">
         <strong>Mersin Üniversitesi</strong> — Dilek &amp; Öneri Sistemi © {new Date().getFullYear()}

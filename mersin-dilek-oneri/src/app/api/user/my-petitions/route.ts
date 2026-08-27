@@ -35,7 +35,10 @@ export async function GET(request: NextRequest) {
             ],
           }
         : {
-            applicantEmail: session.user.email,
+            OR: [
+              { applicantEmail: session.user.email },
+              { createdByStaffId: session.user.id },
+            ],
           };
 
     const petitions = await prisma.petition.findMany({

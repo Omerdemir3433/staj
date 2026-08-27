@@ -28,8 +28,15 @@ const initialForm: CreatePetitionFormData = {
   privacyNoticeAcknowledged: false,
 };
 
+interface NewPetitionSuccessPayload {
+  message: string;
+  email: string;
+  developmentVerificationUrl?: string;
+  developmentCode?: string;
+}
+
 interface NewPetitionFormProps {
-  onSuccess: (message: string) => void;
+  onSuccess: (payload: NewPetitionSuccessPayload) => void;
   onCancel: () => void;
 }
 
@@ -337,7 +344,13 @@ export default function NewPetitionForm({
         return;
       }
 
-      onSuccess(data.message);
+      onSuccess({
+        message: data.message,
+        email: form.email.trim(),
+        developmentVerificationUrl:
+          data.developmentVerificationUrl,
+        developmentCode: data.developmentCode,
+      });
     } catch (submitError) {
       console.error(
         "Başvuru gönderme isteği başarısız:",

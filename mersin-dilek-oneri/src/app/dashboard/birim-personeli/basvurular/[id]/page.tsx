@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Toast from "@/components/Toast";
 
 type StaffRole = "ADMIN" | "UNIT_MANAGER" | "UNIT_STAFF";
 
@@ -106,9 +107,10 @@ interface PetitionDetail {
     lastName: string;
   } | null;
 
-  notes: PetitionNote[];
-  supportRequests: SupportRequest[];
   responses: PetitionResponse[];
+  statusHistory: StatusHistoryItem[];
+  notes?: PetitionNote[];
+  supportRequests?: SupportRequest[];
 }
 
 interface MeResponse {
@@ -120,24 +122,6 @@ interface MeResponse {
 interface PetitionDetailResponse {
   success: boolean;
   petition?: PetitionDetail;
-  error?: string;
-}
-
-interface NotesResponse {
-  success: boolean;
-  notes?: PetitionNote[];
-  error?: string;
-}
-
-interface NoteCreateResponse {
-  success: boolean;
-  note?: PetitionNote;
-  error?: string;
-}
-
-interface SupportCreateResponse {
-  success: boolean;
-  supportRequest?: SupportRequest;
   error?: string;
 }
 
@@ -154,6 +138,12 @@ interface PetitionResponse {
     lastName: string;
     role: StaffRole;
   };
+}
+
+interface StatusHistoryItem {
+  fromStatus: PetitionStatus | null;
+  toStatus: PetitionStatus;
+  createdAt: string;
 }
 
 interface RespondCreateResponse {
@@ -188,6 +178,24 @@ interface ClaimResponse {
   error?: string;
 }
 
+interface NotesResponse {
+  success: boolean;
+  notes?: PetitionNote[];
+  error?: string;
+}
+
+interface NoteCreateResponse {
+  success: boolean;
+  note?: PetitionNote;
+  error?: string;
+}
+
+interface SupportCreateResponse {
+  success: boolean;
+  supportRequest?: SupportRequest;
+  error?: string;
+}
+
 const STATUS_LABELS: Record<PetitionStatus, string> = {
   EMAIL_PENDING: "E-posta Bekleniyor",
   RECEIVED: "Başvuru Alındı",
@@ -219,12 +227,9 @@ const SUPPORT_STATUS_LABELS: Record<SupportRequestStatus, string> = {
 };
 
 const SUPPORT_STATUS_STYLES: Record<SupportRequestStatus, string> = {
-  PENDING:
-    "rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-800",
-  ACCEPTED:
-    "rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800",
-  REJECTED:
-    "rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800",
+  PENDING: "rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-800",
+  ACCEPTED: "rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800",
+  REJECTED: "rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800",
 };
 
 function formatDate(value: string): string {
@@ -261,25 +266,6 @@ export default function UnitStaffPetitionDetailPage() {
 
   const [claimLoading, setClaimLoading] = useState(false);
 
-  const [chatNotes, setChatNotes] = useState<
-    PetitionNote[]
-  >([]);
-
-  const [chatInput, setChatInput] = useState("");
-
-  const [chatSending, setChatSending] = useState(false);
-
-  const chatContainerRef = useRef<HTMLDivElement>(null);
-
-  const [supportMessage, setSupportMessage] =
-    useState("");
-
-  const [supportSending, setSupportSending] =
-    useState(false);
-
-  const [supportRequests, setSupportRequests] =
-    useState<SupportRequest[]>([]);
-
   const [respondContent, setRespondContent] = useState("");
   const [respondSending, setRespondSending] = useState(false);
   const [responses, setResponses] = useState<PetitionResponse[]>([]);
@@ -289,19 +275,22 @@ export default function UnitStaffPetitionDetailPage() {
   const [closeType, setCloseType] = useState<"CLOSED" | "REJECTED">("CLOSED");
   const [closeSending, setCloseSending] = useState(false);
 
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+
+  const [chatNotes, setChatNotes] = useState<PetitionNote[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatSending, setChatSending] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollChatToBottom = useCallback(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({
-        behavior: "smooth",
-      });
-    }
-  }, []);
+  const [supportMessage, setSupportMessage] = useState("");
+  const [supportSending, setSupportSending] = useState(false);
+  const [supportRequests, setSupportRequests] = useState<SupportRequest[]>([]);
 
   useEffect(() => {
-    scrollChatToBottom();
-  }, [chatNotes, scrollChatToBottom]);
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatNotes]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -371,11 +360,9 @@ export default function UnitStaffPetitionDetailPage() {
           petitionData.petition;
 
         setPetition(loadedPetition);
-        setChatNotes(loadedPetition.notes ?? []);
         setResponses(loadedPetition.responses ?? []);
-        setSupportRequests(
-          loadedPetition.supportRequests ?? []
-        );
+        setChatNotes(loadedPetition.notes ?? []);
+        setSupportRequests(loadedPetition.supportRequests ?? []);
       } catch (loadError) {
         if (
           loadError instanceof DOMException &&
@@ -467,59 +454,10 @@ export default function UnitStaffPetitionDetailPage() {
     }
   }
 
-  async function handleSendNote() {
-    if (!petition) return;
-
-    const trimmed = chatInput.trim();
-
-    if (!trimmed) return;
-
-    try {
-      setChatSending(true);
-
-      const response = await fetch(
-        `/api/petitions/${petition.id}/notes`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ content: trimmed }),
-        }
-      );
-
-      const data =
-        (await response.json()) as NoteCreateResponse;
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.error ?? "Not eklenemedi."
-        );
-      }
-
-      if (data.note) {
-        setChatNotes((prev) => [...prev, data.note!]);
-      }
-
-      setChatInput("");
-    } catch (noteError) {
-      setError(
-        noteError instanceof Error
-          ? noteError.message
-          : "Not eklenirken hata oluştu."
-      );
-    } finally {
-      setChatSending(false);
-    }
-  }
-
-  async function handleRefreshNotes() {
-    if (!petition) return;
-
+  async function loadPetition() {
     try {
       const response = await fetch(
-        `/api/petitions/${petition.id}/notes`,
+        `/api/petitions/${petitionId}`,
         {
           method: "GET",
           credentials: "include",
@@ -528,67 +466,16 @@ export default function UnitStaffPetitionDetailPage() {
       );
 
       const data =
-        (await response.json()) as NotesResponse;
+        (await response.json()) as PetitionDetailResponse;
 
-      if (response.ok && data.success && data.notes) {
-        setChatNotes(data.notes);
+      if (response.ok && data.success && data.petition) {
+        setPetition(data.petition);
+        setResponses(data.petition.responses ?? []);
+        setChatNotes(data.petition.notes ?? []);
+        setSupportRequests(data.petition.supportRequests ?? []);
       }
     } catch {
       // silent refresh failure
-    }
-  }
-
-  async function handleSendSupport() {
-    if (!petition) return;
-
-    const trimmed = supportMessage.trim();
-
-    if (!trimmed) return;
-
-    try {
-      setSupportSending(true);
-      setError("");
-
-      const response = await fetch(
-        `/api/petitions/${petition.id}/support`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ message: trimmed }),
-        }
-      );
-
-      const data =
-        (await response.json()) as SupportCreateResponse;
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.error ?? "Destek talebi oluşturulamadı."
-        );
-      }
-
-      if (data.supportRequest) {
-        setSupportRequests((prev) => [
-          data.supportRequest!,
-          ...prev,
-        ]);
-      }
-
-      setSupportMessage("");
-      setSuccessMessage(
-        "Destek talebi başarıyla oluşturuldu."
-      );
-    } catch (supportError) {
-      setError(
-        supportError instanceof Error
-          ? supportError.message
-          : "Destek talebi gönderilirken hata oluştu."
-      );
-    } finally {
-      setSupportSending(false);
     }
   }
 
@@ -648,11 +535,114 @@ export default function UnitStaffPetitionDetailPage() {
     }
   }
 
+  async function handleSendNote() {
+    if (!petition) return;
+
+    const trimmed = chatInput.trim();
+    if (!trimmed) return;
+
+    try {
+      setChatSending(true);
+      setError("");
+
+      const response = await fetch(`/api/petitions/${petition.id}/notes`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: trimmed }),
+      });
+
+      const data = (await response.json()) as NoteCreateResponse;
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error ?? "Not eklenemedi.");
+      }
+
+      if (data.note) {
+        setChatNotes((prev) => [...prev, data.note!]);
+      }
+
+      setChatInput("");
+    } catch (noteError) {
+      setError(
+        noteError instanceof Error
+          ? noteError.message
+          : "Not eklenirken hata oluştu."
+      );
+    } finally {
+      setChatSending(false);
+    }
+  }
+
+  async function handleRefreshNotes() {
+    if (!petition) return;
+
+    try {
+      const response = await fetch(`/api/petitions/${petition.id}/notes`, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = (await response.json()) as NotesResponse;
+
+      if (response.ok && data.success && data.notes) {
+        setChatNotes(data.notes);
+      }
+    } catch {
+      // silent refresh failure
+    }
+  }
+
+  async function handleSendSupport() {
+    if (!petition) return;
+
+    const trimmed = supportMessage.trim();
+    if (!trimmed) return;
+
+    try {
+      setSupportSending(true);
+      setError("");
+
+      const response = await fetch(`/api/petitions/${petition.id}/support`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: trimmed }),
+      });
+
+      const data = (await response.json()) as SupportCreateResponse;
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error ?? "Destek talebi oluşturulamadı.");
+      }
+
+      if (data.supportRequest) {
+        setSupportRequests((prev) => [data.supportRequest!, ...prev]);
+      }
+
+      setSupportMessage("");
+      setSuccessMessage("Destek talebi başarıyla oluşturuldu.");
+    } catch (supportError) {
+      setError(
+        supportError instanceof Error
+          ? supportError.message
+          : "Destek talebi gönderilirken hata oluştu."
+      );
+    } finally {
+      setSupportSending(false);
+    }
+  }
+
+  function showToast(message: string, type: "success" | "error" | "info" = "info") {
+    setToast({ message, type });
+  }
+
   async function handleClose() {
     if (!petition) return;
 
     if (!closeReason.trim()) {
-      alert("Lütfen bir açıklama girin.");
+      showToast("Lütfen bir açıklama girin.", "error");
       return;
     }
 
@@ -672,16 +662,16 @@ export default function UnitStaffPetitionDetailPage() {
       const data = await response.json();
 
       if (!data.success) {
-        alert(data.error || "İşlem başarısız.");
+        showToast(data.error || "İşlem başarısız.", "error");
         return;
       }
 
       setCloseModalOpen(false);
       setCloseReason("");
-      alert(data.message || "İşlem başarılı.");
-      window.location.reload();
+      showToast(data.message || "İşlem başarılı.", "success");
+      void loadPetition();
     } catch {
-      alert("İşlem sırasında bir hata oluştu.");
+      showToast("İşlem sırasında bir hata oluştu.", "error");
     } finally {
       setCloseSending(false);
     }
@@ -737,22 +727,27 @@ export default function UnitStaffPetitionDetailPage() {
     currentUser.unit.id ===
       petition.targetUnit.id;
 
+  const isOwnerUnit =
+    currentUser.unit !== null &&
+    currentUser.unit.id === petition.targetUnit.id;
+
+  const hasAcceptedSupport = (petition.supportRequests ?? []).some(
+    (sr) =>
+      sr.status === "ACCEPTED" &&
+      currentUser.unit !== null &&
+      sr.supportUnit?.id === currentUser.unit.id
+  );
+
+  // Sahip birim personeli ve kabul edilmiş destek birimi personeli notları görebilir.
+  const showChat = isOwnerUnit || hasAcceptedSupport;
+
   const canRespond =
     !isClosedOrRejected &&
     petition.status !== "EMAIL_PENDING" &&
     currentUser.role === "UNIT_STAFF" &&
-    currentUser.unit !== null &&
-    currentUser.unit.id === petition.targetUnit.id &&
+    isOwnerUnit &&
     petition.assignedStaff !== null &&
     petition.assignedStaff.id === currentUser.id;
-
-  const showChat =
-    currentUser.unit !== null &&
-    currentUser.unit.id === petition.targetUnit.id;
-
-  const showSupport =
-    currentUser.unit !== null &&
-    currentUser.unit.id === petition.targetUnit.id;
 
   return (
     <main className="page-wrapper">
@@ -858,27 +853,64 @@ export default function UnitStaffPetitionDetailPage() {
             </div>
           </section>
 
+          {petition.statusHistory && petition.statusHistory.length > 0 && (
+            <section className="card">
+              <div className="card-header border-b border-slate-200 pb-4">
+                <h2 className="text-lg font-bold text-slate-950 uppercase tracking-wide">
+                  Başvuru Hareketleri
+                </h2>
+              </div>
+
+              <div className="card-body">
+                <div className="space-y-5">
+                  {petition.statusHistory.map((item, index) => (
+                    <div
+                      key={`${item.toStatus}-${item.createdAt}-${index}`}
+                      className="relative flex gap-4"
+                    >
+                      <div className="flex flex-col items-center">
+                        <span className="mt-1 h-3 w-3 rounded-full bg-red-700" />
+                        {index < petition.statusHistory.length - 1 ? (
+                          <span className="mt-2 h-full min-h-10 w-px bg-slate-200" />
+                        ) : null}
+                      </div>
+                      <div className="pb-4">
+                        <p className="font-semibold text-slate-950">
+                          {STATUS_LABELS[item.toStatus]}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {formatDate(item.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
           {showChat && (
             <section className="card">
-              <div className="flex items-center justify-between">
-                <h2 className="card-header mb-0">
-                  Görev Notları (Chat)
+              <div className="flex items-center justify-between card-header border-b border-slate-200 pb-4">
+                <h2 className="text-lg font-bold text-slate-950 uppercase tracking-wide">
+                  Görev Notları
                 </h2>
 
                 <button
                   type="button"
-                  onClick={() =>
-                    void handleRefreshNotes()
-                  }
-                  className="btn btn-ghost btn-sm"
+                  onClick={() => void handleRefreshNotes()}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
                 >
                   Yenile
                 </button>
               </div>
 
+              <p className="mt-3 text-xs text-slate-500">
+                Bu notlar yalnızca birim çalışanları arası iç iletişim içindir; başvuru sahibi göremez.
+              </p>
+
               <div className="card-body">
                 <div
-                  ref={chatContainerRef}
                   className="max-h-[500px] space-y-3 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-4"
                   style={{ minHeight: "120px" }}
                 >
@@ -889,17 +921,12 @@ export default function UnitStaffPetitionDetailPage() {
                   )}
 
                   {chatNotes.map((note) => {
-                    const isSelf =
-                      note.author.id === currentUser.id;
+                    const isSelf = note.author.id === currentUser.id;
 
                     return (
                       <div
                         key={note.id}
-                        className={`flex ${
-                          isSelf
-                            ? "justify-end"
-                            : "justify-start"
-                        }`}
+                        className={`flex ${isSelf ? "justify-end" : "justify-start"}`}
                       >
                         <div
                           className={`max-w-[80%] rounded-2xl px-4 py-3 ${
@@ -911,34 +938,23 @@ export default function UnitStaffPetitionDetailPage() {
                           {!isSelf && (
                             <div className="mb-1 flex items-center gap-2">
                               <span className="text-xs font-semibold text-slate-700">
-                                {note.author.firstName}{" "}
-                                {note.author.lastName}
+                                {note.author.firstName} {note.author.lastName}
                               </span>
 
                               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                                {
-                                  ROLE_LABELS[
-                                    note.author.role
-                                  ]
-                                }
+                                {ROLE_LABELS[note.author.role]}
                               </span>
                             </div>
                           )}
 
-                          <p className="whitespace-pre-wrap text-sm leading-6">
-                            {note.content}
-                          </p>
+                          <p className="whitespace-pre-wrap text-sm leading-6">{note.content}</p>
 
                           <p
                             className={`mt-1.5 text-[10px] ${
-                              isSelf
-                                ? "text-blue-200"
-                                : "text-slate-400"
+                              isSelf ? "text-blue-200" : "text-slate-400"
                             }`}
                           >
-                            {formatShortDate(
-                              note.createdAt
-                            )}
+                            {formatShortDate(note.createdAt)}
                           </p>
                         </div>
                       </div>
@@ -952,14 +968,9 @@ export default function UnitStaffPetitionDetailPage() {
                   <input
                     type="text"
                     value={chatInput}
-                    onChange={(e) =>
-                      setChatInput(e.target.value)
-                    }
+                    onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (
-                        e.key === "Enter" &&
-                        !e.shiftKey
-                      ) {
+                      if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         void handleSendNote();
                       }
@@ -973,10 +984,8 @@ export default function UnitStaffPetitionDetailPage() {
                   <button
                     type="button"
                     onClick={() => void handleSendNote()}
-                    disabled={
-                      chatSending || !chatInput.trim()
-                    }
-                    className="btn btn-primary btn-sm"
+                    disabled={chatSending || !chatInput.trim()}
+                    className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {chatSending ? "..." : "Gönder"}
                   </button>
@@ -1025,7 +1034,7 @@ export default function UnitStaffPetitionDetailPage() {
           )}
 
           {/* Kapat / Reddet Butonları */}
-          {petition.status !== "CLOSED" && petition.status !== "REJECTED" && petition.status !== "EMAIL_PENDING" && (
+          {isOwnerUnit && petition.status !== "CLOSED" && petition.status !== "REJECTED" && petition.status !== "EMAIL_PENDING" && (
             <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
               <button
                 type="button"
@@ -1093,131 +1102,97 @@ export default function UnitStaffPetitionDetailPage() {
             </section>
           )}
 
-          {showSupport && (
-            <section className="card" style={{ borderColor: "var(--color-amber-200, #fde68a)" }}>
-              <h2 className="card-header">
-                Admin Destek Talebi
-              </h2>
+          {(isOwnerUnit || hasAcceptedSupport) && (
+            <section className="rounded-2xl border border-amber-200 bg-white p-6 shadow-sm">
+              {isOwnerUnit ? (
+                <>
+                  <h2 className="text-lg font-bold text-slate-950 uppercase tracking-wide">
+                    Admin Destek Talebi
+                  </h2>
 
-              <div className="card-body">
-                <p className="text-sm text-slate-600">
-                  Admin biriminden destek talebinde
-                  bulunabilirsiniz.
-                </p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Çözemediğiniz başvurular için Admin biriminden destek talep edebilirsiniz.
+                  </p>
 
-                <div className="mt-4">
                   <textarea
                     rows={3}
                     maxLength={5000}
                     value={supportMessage}
-                    onChange={(e) =>
-                      setSupportMessage(e.target.value)
-                    }
+                    onChange={(e) => setSupportMessage(e.target.value)}
                     disabled={supportSending}
                     placeholder="Destek talebinizi açıklayın..."
-                    className="w-full resize-y rounded-lg border border-amber-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:opacity-60"
+                    className="mt-4 w-full resize-y rounded-lg border border-amber-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:opacity-60"
                   />
-                </div>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    void handleSendSupport()
-                  }
-                  disabled={
-                    supportSending ||
-                    !supportMessage.trim()
-                  }
-                  className="btn btn-sm mt-3 w-full"
-                  style={{
-                    backgroundColor: "var(--color-amber-600, #d97706)",
-                    color: "white",
-                  }}
-                >
-                  {supportSending
-                    ? "Gönderiliyor..."
-                    : "Admin'den Destek İste"}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSendSupport()}
+                    disabled={supportSending || !supportMessage.trim()}
+                    className="mt-3 w-full rounded-lg bg-amber-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {supportSending ? "Gönderiliyor..." : "Admin'den Destek İste"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-bold text-slate-950 uppercase tracking-wide">
+                    Destek Ataması
+                  </h2>
 
-                {supportRequests.length > 0 && (
-                  <div className="mt-6 space-y-4">
-                    <h3 className="text-sm font-semibold text-slate-700">
-                      Destek Talepleri
-                    </h3>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Bu başvuruya biriminiz destek birimi olarak atandı. Not ekleyebilirsiniz; cevaplama ve kapatma yetkisi sahip birimdedir.
+                  </p>
+                </>
+              )}
 
-                    {supportRequests.map((sr) => (
-                      <div
-                        key={sr.id}
-                        className="rounded-xl border border-slate-100 bg-slate-50 p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800">
-                              {sr.requestedBy.firstName}{" "}
-                              {sr.requestedBy.lastName}
-                            </p>
+              {supportRequests.length > 0 && (
+                <div className="mt-6 space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-700">Destek Talepleri</h3>
 
-                            <p className="mt-1 text-xs text-slate-500">
-                              {formatShortDate(
-                                sr.createdAt
-                              )}
-                            </p>
-                          </div>
+                  {supportRequests.map((sr) => (
+                    <div key={sr.id} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">
+                            {sr.requestedBy.firstName} {sr.requestedBy.lastName}
+                          </p>
 
-                          <span
-                            className={
-                              SUPPORT_STATUS_STYLES[
-                                sr.status
-                              ]
-                            }
-                          >
-                            {
-                              SUPPORT_STATUS_LABELS[
-                                sr.status
-                              ]
-                            }
-                          </span>
+                          <p className="mt-1 text-xs text-slate-500">{formatShortDate(sr.createdAt)}</p>
                         </div>
 
-                        <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">
-                          {sr.message}
-                        </p>
-
-                        {sr.supportUnit && (
-                          <p className="mt-2 text-xs text-slate-500">
-                            Destek Birimi:{" "}
-                            <span className="font-medium text-slate-700">
-                              {sr.supportUnit.name}
-                            </span>
-                          </p>
-                        )}
-
-                        {sr.resolvedBy && (
-                          <p className="mt-1 text-xs text-slate-500">
-                            Çözen:{" "}
-                            <span className="font-medium text-slate-700">
-                              {sr.resolvedBy.firstName}{" "}
-                              {sr.resolvedBy.lastName}
-                            </span>
-
-                            {sr.resolvedAt && (
-                              <span className="ml-1 text-slate-400">
-                                (
-                                {formatShortDate(
-                                  sr.resolvedAt
-                                )}
-                                )
-                              </span>
-                            )}
-                          </p>
-                        )}
+                        <span className={SUPPORT_STATUS_STYLES[sr.status]}>
+                          {SUPPORT_STATUS_LABELS[sr.status]}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+
+                      <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{sr.message}</p>
+
+                      {sr.supportUnit && (
+                        <p className="mt-2 text-xs text-slate-500">
+                          Destek Birimi:{" "}
+                          <span className="font-medium text-slate-700">{sr.supportUnit.name}</span>
+                        </p>
+                      )}
+
+                      {sr.resolvedBy && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          Çözen:{" "}
+                          <span className="font-medium text-slate-700">
+                            {sr.resolvedBy.firstName} {sr.resolvedBy.lastName}
+                          </span>
+
+                          {sr.resolvedAt && (
+                            <span className="ml-1 text-slate-400">({formatShortDate(sr.resolvedAt)})</span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           )}
+
         </div>
 
         <aside className="space-y-6">
@@ -1327,6 +1302,8 @@ export default function UnitStaffPetitionDetailPage() {
           </footer>
         </aside>
       </div>
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {closeModalOpen && (
         <div

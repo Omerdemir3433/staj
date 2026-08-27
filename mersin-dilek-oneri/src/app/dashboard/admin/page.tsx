@@ -4,32 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-type StaffRole = "ADMIN" | "UNIT_MANAGER" | "UNIT_STAFF";
+import { LoadingPage, formatDate } from "@/components/dashboard/shared";
+import { STATUS_LABELS, PRIORITY_LABELS, STATUS_CLASS } from "@/lib/dashboard-constants";
 
-type PetitionStatus =
-  | "EMAIL_PENDING"
-  | "RECEIVED"
-  | "ASSIGNED"
-  | "IN_REVIEW"
-  | "FORWARDED"
-  | "ANSWERED"
-  | "CLOSED"
-  | "REJECTED";
-
-type PetitionPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
-
-interface User {
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: StaffRole;
-  unit: {
-    id: number;
-    code: string;
-    name: string;
-  } | null;
-}
+import type { StaffUser, Petition } from "@/types/dashboard";
 
 interface Unit {
   id: number;
@@ -45,76 +23,15 @@ interface Staff {
   firstName: string;
   lastName: string;
   email: string;
-  role: StaffRole;
-  unit: {
-    id: number;
-    code: string;
-    name: string;
-  } | null;
+  role: string;
+  unit: { id: number; code: string; name: string } | null;
   isActive: boolean;
 }
-
-interface PetitionCategory {
-  id: number;
-  code: string;
-  name: string;
-}
-
-interface Petition {
-  id: number;
-  trackingCode: string;
-  applicantFirstName: string;
-  applicantLastName: string;
-  category: PetitionCategory;
-  status: PetitionStatus;
-  priority: PetitionPriority;
-  subject: string;
-  createdAt: string;
-  targetUnit: {
-    id: number;
-    code: string;
-    name: string;
-  };
-  assignedStaff: {
-    id: number;
-    firstName: string;
-    lastName: string;
-  } | null;
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  EMAIL_PENDING: "E-posta Bekleniyor",
-  RECEIVED: "Alındı",
-  ASSIGNED: "Atandı",
-  IN_REVIEW: "İnceleniyor",
-  FORWARDED: "Yönlendirildi",
-  ANSWERED: "Cevaplandı",
-  CLOSED: "Kapatıldı",
-  REJECTED: "Reddedildi",
-};
-
-const PRIORITY_LABELS: Record<string, string> = {
-  LOW: "Düşük",
-  NORMAL: "Normal",
-  HIGH: "Yüksek",
-  URGENT: "Acil",
-};
-
-const STATUS_CLASS_MAP: Record<PetitionStatus, string> = {
-  EMAIL_PENDING: "status-received",
-  RECEIVED: "status-received",
-  ASSIGNED: "status-in-review",
-  IN_REVIEW: "status-in-review",
-  FORWARDED: "status-in-review",
-  ANSWERED: "status-answered",
-  CLOSED: "status-closed",
-  REJECTED: "status-rejected",
-};
 
 export default function AdminDashboardPage() {
   const router = useRouter();
 
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<StaffUser | null>(null);
   const [units, setUnits] = useState<Unit[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [petitions, setPetitions] = useState<Petition[]>([]);
@@ -152,42 +69,22 @@ export default function AdminDashboardPage() {
       setUser(meData.user);
 
       const [unitsRes, staffRes, petitionsRes] = await Promise.all([
-        fetch("/api/admin/units", {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        }),
-        fetch("/api/admin/staff", {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        }),
-        fetch("/api/petitions", {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        }),
+        fetch("/api/admin/units", { method: "GET", credentials: "include", cache: "no-store" }),
+        fetch("/api/admin/staff", { method: "GET", credentials: "include", cache: "no-store" }),
+        fetch("/api/petitions", { method: "GET", credentials: "include", cache: "no-store" }),
       ]);
 
       if (unitsRes.ok) {
         const unitsData = await unitsRes.json();
-        if (unitsData.success && unitsData.units) {
-          setUnits(unitsData.units);
-        }
+        if (unitsData.success && unitsData.units) setUnits(unitsData.units);
       }
-
       if (staffRes.ok) {
         const staffData = await staffRes.json();
-        if (staffData.success && staffData.staff) {
-          setStaff(staffData.staff);
-        }
+        if (staffData.success && staffData.staff) setStaff(staffData.staff);
       }
-
       if (petitionsRes.ok) {
         const petitionsData = await petitionsRes.json();
-        if (petitionsData.success && petitionsData.petitions) {
-          setPetitions(petitionsData.petitions);
-        }
+        if (petitionsData.success && petitionsData.petitions) setPetitions(petitionsData.petitions);
       }
     } catch {
       setError("Veriler yüklenirken sunucuya ulaşılamadı.");
@@ -197,14 +94,10 @@ export default function AdminDashboardPage() {
   }, [router]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
   }, [loadData]);
 
-  if (loading) {
-    return <LoadingPage />;
-  }
-
+  if (loading) return <LoadingPage text="Yönetici paneli yükleniyor..." />;
   if (!user) return null;
 
   const activeUnits = units.filter((u) => u.isActive);
@@ -212,12 +105,8 @@ export default function AdminDashboardPage() {
   const pendingPetitions = petitions.filter(
     (p) => p.status === "RECEIVED" || p.status === "ASSIGNED"
   );
-
   const recentPetitions = [...petitions]
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
 
   return (
@@ -231,7 +120,6 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* Stats Grid */}
         <div className="stats-grid" style={{ marginBottom: 24 }}>
           <div className="stat-card">
             <div className="stat-icon">🏢</div>
@@ -255,7 +143,6 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Quick Actions */}
         <div className="quick-actions" style={{ marginBottom: 24 }}>
           <Link href="/dashboard/admin/categories" className="quick-action-btn">
             <span className="qa-icon">📂</span>
@@ -279,7 +166,6 @@ export default function AdminDashboardPage() {
           </Link>
         </div>
 
-        {/* Units Overview */}
         <div className="card" style={{ marginBottom: 24 }}>
           <div className="card-header">
             <span className="card-title">Birimler</span>
@@ -293,20 +179,10 @@ export default function AdminDashboardPage() {
                 Henüz birim bulunmuyor.
               </p>
             ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                  gap: 16,
-                }}
-              >
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
                 {activeUnits.map((unit) => {
-                  const unitStaffCount = activeStaff.filter(
-                    (s) => s.unit?.id === unit.id
-                  ).length;
-                  const unitPetitionCount = petitions.filter(
-                    (p) => p.targetUnit.id === unit.id
-                  ).length;
+                  const unitStaffCount = activeStaff.filter((s) => s.unit?.id === unit.id).length;
+                  const unitPetitionCount = petitions.filter((p) => p.targetUnit.id === unit.id).length;
 
                   return (
                     <Link
@@ -318,20 +194,9 @@ export default function AdminDashboardPage() {
                       <div className="landing-card-title" style={{ marginBottom: 8 }}>
                         {unit.name}
                       </div>
-                      <div
-                        className="landing-card-desc"
-                        style={{
-                          display: "flex",
-                          gap: 16,
-                          fontSize: 13,
-                        }}
-                      >
-                        <span>
-                          <strong>{unitStaffCount}</strong> personel
-                        </span>
-                        <span>
-                          <strong>{unitPetitionCount}</strong> başvuru
-                        </span>
+                      <div className="landing-card-desc" style={{ display: "flex", gap: 16, fontSize: 13 }}>
+                        <span><strong>{unitStaffCount}</strong> personel</span>
+                        <span><strong>{unitPetitionCount}</strong> başvuru</span>
                       </div>
                       <span className="landing-card-link">Yönet →</span>
                     </Link>
@@ -342,7 +207,6 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Recent Petitions */}
         <div className="card">
           <div className="card-header">
             <span className="card-title">Son Başvurular</span>
@@ -360,110 +224,36 @@ export default function AdminDashboardPage() {
                 {recentPetitions.map((petition) => (
                   <article
                     key={petition.id}
+                    className="petition-item"
                     role="button"
                     tabIndex={0}
-                    onClick={() =>
-                      router.push(`/dashboard/personel/basvurular/${petition.id}`)
-                    }
+                    onClick={() => router.push(`/dashboard/personel/basvurular/${petition.id}`)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
                         router.push(`/dashboard/personel/basvurular/${petition.id}`);
                       }
                     }}
-                    style={{
-                      padding: 16,
-                      border: "1px solid var(--border)",
-                      borderRadius: "var(--radius)",
-                      background: "var(--surface)",
-                      cursor: "pointer",
-                      transition:
-                        "border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease",
-                    }}
-                    onMouseEnter={(event) => {
-                      event.currentTarget.style.borderColor = "#2c5282";
-                      event.currentTarget.style.boxShadow =
-                        "0 8px 24px rgba(15, 23, 42, 0.08)";
-                      event.currentTarget.style.transform = "translateY(-1px)";
-                    }}
-                    onMouseLeave={(event) => {
-                      event.currentTarget.style.borderColor = "var(--border)";
-                      event.currentTarget.style.boxShadow = "none";
-                      event.currentTarget.style.transform = "translateY(0)";
-                    }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "flex-start",
-                        gap: 14,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: 220 }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            flexWrap: "wrap",
-                            marginBottom: 8,
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontFamily: "monospace",
-                              fontSize: 12,
-                              color: "var(--text-muted)",
-                            }}
-                          >
-                            {petition.trackingCode}
-                          </span>
-                          <span className="cat-badge">{petition.category.name}</span>
-                        </div>
-                        <h3 style={{ margin: "0 0 8px", fontSize: 16 }}>
-                          {petition.subject}
-                        </h3>
-                        <p
-                          style={{
-                            margin: "0 0 6px",
-                            color: "var(--text-secondary)",
-                            fontSize: 13,
-                          }}
-                        >
-                          Başvuru sahibi:{" "}
-                          <strong>
-                            {petition.applicantFirstName} {petition.applicantLastName}
-                          </strong>
-                        </p>
-                        <p
-                          style={{
-                            margin: 0,
-                            color: "var(--text-muted)",
-                            fontSize: 12,
-                          }}
-                        >
-                          Birim: {petition.targetUnit.name} ·{" "}
-                          {formatDate(petition.createdAt)}
-                        </p>
-                      </div>
-                      <div style={{ minWidth: 140, textAlign: "right" }}>
-                        <span
-                          className={`status-badge ${STATUS_CLASS_MAP[petition.status]}`}
-                        >
-                          {STATUS_LABELS[petition.status]}
+                    <div className="petition-item-left">
+                      <p className="petition-tracking">{petition.trackingCode}</p>
+                      <h2 className="petition-subject">{petition.subject}</h2>
+                      <div className="petition-meta">
+                        <span className="cat-badge">{petition.category.name}</span>
+                        <span>
+                          {petition.applicantFirstName} {petition.applicantLastName}
                         </span>
-                        <p
-                          style={{
-                            margin: "8px 0 0",
-                            color: "var(--text-muted)",
-                            fontSize: 12,
-                          }}
-                        >
-                          {PRIORITY_LABELS[petition.priority]}
-                        </p>
+                        <span>{petition.targetUnit.name}</span>
                       </div>
+                      <p className="petition-date">{formatDate(petition.createdAt)}</p>
+                    </div>
+                    <div className="petition-item-right">
+                      <span className={`status-badge ${STATUS_CLASS[petition.status]}`}>
+                        {STATUS_LABELS[petition.status]}
+                      </span>
+                      <p style={{ margin: "8px 0 0", color: "var(--text-muted)", fontSize: 12 }}>
+                        {PRIORITY_LABELS[petition.priority]}
+                      </p>
                     </div>
                   </article>
                 ))}
@@ -472,47 +262,6 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       </main>
-
-      <footer className="footer">
-        <strong>Mersin Üniversitesi</strong> — Dilek &amp; Öneri Sistemi ©{" "}
-        {new Date().getFullYear()}
-      </footer>
     </div>
   );
-}
-
-function LoadingPage() {
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "var(--bg)",
-      }}
-    >
-      <div style={{ textAlign: "center" }}>
-        <div
-          className="spinner spinner-dark"
-          style={{
-            width: 40,
-            height: 40,
-            borderWidth: 3,
-            margin: "0 auto 16px",
-          }}
-        />
-        <p style={{ color: "var(--text-muted)" }}>
-          Yönetici paneli yükleniyor...
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("tr-TR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }

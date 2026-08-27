@@ -55,7 +55,14 @@ export async function POST(request: NextRequest) {
       where: {
         email,
       },
-      include: {
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        passwordHash: true,
+        role: true,
+        isActive: true,
         unit: {
           select: {
             id: true,
@@ -109,6 +116,7 @@ export async function POST(request: NextRequest) {
       staffUserId: staffUser.id,
       email: staffUser.email,
       role: staffUser.role,
+      type: "STAFF",
       firstName: staffUser.firstName,
       lastName: staffUser.lastName,
     });

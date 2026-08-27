@@ -97,8 +97,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ success: false, error: "Destek talebi bulunamadı." }, { status: 404, headers: createNoStoreHeaders() });
     }
 
-    if (supportRequest.status !== "PENDING") {
+    // Kabul yalnızca beklemedeki talepler için; red ile kabul edilmiş bir
+    // atama da geri çekilebilir (örn. görev başka birime devredildiğinde).
+    if (action === "ACCEPT" && supportRequest.status !== "PENDING") {
       return NextResponse.json({ success: false, error: "Bu destek talebi zaten işleme alındı." }, { status: 409, headers: createNoStoreHeaders() });
+    }
+
+    if (action === "REJECT" && supportRequest.status === "REJECTED") {
+      return NextResponse.json({ success: false, error: "Bu destek talebi zaten reddedildi." }, { status: 409, headers: createNoStoreHeaders() });
     }
 
     if (action === "ACCEPT") {

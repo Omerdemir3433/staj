@@ -52,6 +52,10 @@ export const STATUS_COLORS: Record<string, string> = {
 
 export function generateTrackingCode(): string {
   const year = new Date().getFullYear();
-  const random = Math.floor(Math.random() * 900000) + 100000;
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let random = "";
+  for (let i = 0; i < 8; i++) {
+    random += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
   return `MER${year}${random}`;
 }

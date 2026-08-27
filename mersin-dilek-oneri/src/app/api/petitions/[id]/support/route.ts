@@ -62,9 +62,25 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const isAdmin = staff.role === "ADMIN";
-    const isSameUnit = staff.unitId === petition.targetUnitId;
+    const isSameUnit =
+      staff.unitId !== null &&
+      staff.unitId === petition.targetUnitId;
+    // Atanan destek birimi talepleri görüntüleyebilir; yeni talep açamaz.
+    const isSupportUnit =
+      !isAdmin &&
+      !isSameUnit &&
+      staff.unitId !== null
+        ? (await prisma.supportRequest.findFirst({
+            where: {
+              petitionId,
+              status: "ACCEPTED",
+              supportUnitId: staff.unitId,
+            },
+            select: { id: true },
+          })) !== null
+        : false;
 
-    if (!isAdmin && !isSameUnit) {
+    if (!isAdmin && !isSameUnit && !isSupportUnit) {
       return NextResponse.json({ success: false, error: "Bu başvuruya erişim yetkiniz yok." }, { status: 403, headers: createNoStoreHeaders() });
     }
 

@@ -119,8 +119,11 @@ export async function POST(request: NextRequest) {
     if (!isValidEmail(email)) {
       return NextResponse.json({ success: false, error: "Geçersiz e-posta adresi." }, { status: 400, headers: createNoStoreHeaders() });
     }
-    if (password.length < 6) {
-      return NextResponse.json({ success: false, error: "Şifre en az 6 karakter olmalıdır." }, { status: 400, headers: createNoStoreHeaders() });
+    if (password.length < 8) {
+      return NextResponse.json({ success: false, error: "Şifre en az 8 karakter olmalıdır." }, { status: 400, headers: createNoStoreHeaders() });
+    }
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      return NextResponse.json({ success: false, error: "Şifre en az bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter içermelidir." }, { status: 400, headers: createNoStoreHeaders() });
     }
     if (!["ADMIN", "UNIT_MANAGER", "UNIT_STAFF"].includes(role)) {
       return NextResponse.json({ success: false, error: "Geçersiz rol." }, { status: 400, headers: createNoStoreHeaders() });
