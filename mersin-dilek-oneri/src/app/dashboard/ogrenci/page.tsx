@@ -1,180 +1,255 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import Navbar from '@/components/Navbar';
-import { PetitionList } from '@/components/PetitionList';
-import NewPetitionForm from '@/components/NewPetitionForm';
-
-interface UserInfo {
-  userId: number;
-  ad: string;
-  soyad: string;
-  email: string;
-  userType: string;
-}
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface Petition {
   id: number;
   trackingCode: string;
-  category: string;
-  targetUnit: string;
-  konu: string;
-  icerik: string;
+  subject: string;
   status: string;
-  adminNotu?: string | null;
-  cevapTarihi?: string | null;
+  priority: string;
   createdAt: string;
 }
 
-export default function OgrenciDashboard() {
+interface User {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  EMAIL_PENDING: "E-posta Bekleniyor",
+  RECEIVED: "Alındı",
+  ASSIGNED: "Atandı",
+  IN_REVIEW: "İnceleniyor",
+  FORWARDED: "Yönlendirildi",
+  ANSWERED: "Cevaplandı",
+  CLOSED: "Kapatıldı",
+  REJECTED: "Reddedildi",
+};
+
+const STATUS_BADGES: Record<string, string> = {
+  EMAIL_PENDING: "status-email-pending",
+  RECEIVED: "status-received",
+  ASSIGNED: "status-assigned",
+  IN_REVIEW: "status-in-review",
+  FORWARDED: "status-forwarded",
+  ANSWERED: "status-answered",
+  CLOSED: "status-closed",
+  REJECTED: "status-rejected",
+};
+
+export default function StudentDashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<UserInfo | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [petitions, setPetitions] = useState<Petition[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const fetchPetitions = useCallback(async () => {
-    const res = await fetch('/api/petitions');
-    if (res.ok) {
-      const data = await res.json();
-      setPetitions(data.petitions);
-    }
-  }, []);
-
   useEffect(() => {
-    fetch('/api/auth/me')
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data.user || data.user.userType !== 'STUDENT') {
-          router.replace('/giris');
+    async function loadData() {
+      try {
+        const response = await fetch("/api/auth/me", {
+          credentials: "include",
+        });
+        if (!response.ok) {
+          router.push("/ogrenci-akademisyen-giris");
           return;
         }
+        const data = await response.json();
         setUser(data.user);
-        return fetchPetitions();
-      })
-      .catch(() => router.replace('/giris'))
-      .finally(() => setLoading(false));
-  }, [router, fetchPetitions]);
 
-  function handleSuccess(petition: { trackingCode: string; konu: string }) {
-    setShowForm(false);
-    setSuccessMsg(`Başvurunuz alındı! Takip kodunuz: ${petition.trackingCode}`);
-    fetchPetitions();
-    setTimeout(() => setSuccessMsg(''), 8000);
+        const petResponse = await fetch("/api/petitions", {
+          credentials: "include",
+        });
+        if (petResponse.ok) {
+          const petData = await petResponse.json();
+          setPetitions(petData.petitions || []);
+        }
+      } catch {
+        router.push("/ogrenci-akademisyen-giris");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [router]);
+
+  const stats = useMemo(
+    () => ({
+      total: petitions.length,
+      processing: petitions.filter((petition) =>
+        ["RECEIVED", "ASSIGNED", "IN_REVIEW", "FORWARDED"].includes(
+          petition.status
+        )
+      ).length,
+      completed: petitions.filter((petition) =>
+        ["ANSWERED", "CLOSED"].includes(petition.status)
+      ).length,
+    }),
+    [petitions]
+  );
+
+  if (loading) {
+    return (
+      <main
+        style={{
+          minHeight: "70vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--bg)",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div
+            className="spinner spinner-dark"
+            style={{
+              width: 40,
+              height: 40,
+              borderWidth: 3,
+              margin: "0 auto 16px",
+            }}
+          />
+          <p style={{ color: "var(--text-muted)" }}>
+            Panel yükleniyor...
+          </p>
+        </div>
+      </main>
+    );
   }
 
-  if (loading) return <LoadingPage />;
   if (!user) return null;
-
-  const stats = {
-    total: petitions.length,
-    beklemede: petitions.filter((p) => p.status === 'BEKLEMEDE').length,
-    incelemede: petitions.filter((p) => p.status === 'INCELEMEDE').length,
-    cevaplandi: petitions.filter((p) => p.status === 'CEVAPLANDI').length,
-  };
 
   return (
     <div className="page-wrapper">
-      <Navbar userName={`${user.ad} ${user.soyad}`} userType={user.userType} />
+      <main className="main-content">
+        <h1 className="page-title">Öğrenci Paneli</h1>
 
-      <div className="page-hero" style={{ background: 'linear-gradient(135deg, #0a5c37 0%, #1a8f5a 100%)' }}>
-        <div className="page-hero-inner">
-          <h1>📚 Öğrenci Portalı</h1>
-          <p>Hoş geldiniz, {user.ad} {user.soyad}. Dilek ve önerilerinizi buradan iletebilirsiniz.</p>
-        </div>
-      </div>
-
-      <div className="main-content">
-        {successMsg && (
-          <div className="alert alert-success" style={{ marginBottom: 20 }}>
-            ✅ {successMsg}
-          </div>
-        )}
-
-        {/* Stats */}
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-icon">📋</div>
-            <div className="stat-value" style={{ color: '#0a5c37' }}>{stats.total}</div>
-            <div className="stat-label">Toplam Başvuru</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">⏳</div>
-            <div className="stat-value" style={{ color: '#0a5c37' }}>{stats.beklemede}</div>
-            <div className="stat-label">Beklemede</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">🔍</div>
-            <div className="stat-value" style={{ color: '#0a5c37' }}>{stats.incelemede}</div>
-            <div className="stat-label">İncelemede</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">✅</div>
-            <div className="stat-value" style={{ color: '#0a5c37' }}>{stats.cevaplandi}</div>
-            <div className="stat-label">Cevaplandı</div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div className="card-header">
-            <span className="card-title">⚡ Hızlı Başvuru</span>
-          </div>
-          <div className="card-body">
-            <div className="quick-actions">
-              {[
-                { icon: '📋', label: 'Talep', cat: 'TALEP' },
-                { icon: '⚠️', label: 'Şikayet', cat: 'SIKAYET' },
-                { icon: 'ℹ️', label: 'Bilgi Edinme', cat: 'BILGI_EDINME' },
-                { icon: '💡', label: 'Öneri', cat: 'ONERI' },
-                { icon: '🙏', label: 'Teşekkür', cat: 'TESEKKUR' },
-              ].map((item) => (
-                <button
-                  key={item.cat}
-                  className="quick-action-btn"
-                  onClick={() => setShowForm(true)}
-                >
-                  <span className="qa-icon">{item.icon}</span>
-                  <span className="qa-label">{item.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 className="section-title">📄 Başvurularım</h2>
-          <button className="btn btn-primary" style={{ background: '#0a5c37' }} onClick={() => setShowForm(true)}>
-            + Yeni Başvuru
+        <div className="quick-actions">
+          <button
+            type="button"
+            className="quick-action-btn"
+            onClick={() => router.push("/dashboard/basvuru-olustur")}
+          >
+            <span className="qa-icon">➕</span>
+            <span className="qa-label">Yeni Başvuru</span>
           </button>
         </div>
 
-        <PetitionList petitions={petitions} />
-      </div>
+        <div className="stats-grid" style={{ marginBottom: 24 }}>
+          <StatCard
+            icon="📄"
+            value={stats.total}
+            label="Toplam Başvuru"
+          />
+          <StatCard
+            icon="🔄"
+            value={stats.processing}
+            label="İşlemde"
+          />
+          <StatCard
+            icon="✅"
+            value={stats.completed}
+            label="Tamamlanan"
+          />
+        </div>
 
-      <footer className="footer">
-        <strong>Mersin Üniversitesi</strong> — Dilek & Öneri Sistemi © {new Date().getFullYear()}
-      </footer>
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">
+              📄 Başvurularınız ({petitions.length})
+            </span>
+          </div>
 
-      {showForm && (
-        <NewPetitionForm
-          onSuccess={handleSuccess}
-          onCancel={() => setShowForm(false)}
-        />
-      )}
+          <div className="card-body">
+            {petitions.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">📭</div>
+                <h3>Henüz başvurunuz bulunmuyor</h3>
+                <p>
+                  Yeni bir başvuru oluşturmak için &quot;Yeni
+                  Başvuru&quot; butonunu kullanın.
+                </p>
+              </div>
+            ) : (
+              <div className="petition-list">
+                {petitions.map((petition) => (
+                  <article
+                    key={petition.id}
+                    className="petition-item"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() =>
+                      router.push(
+                        `/dashboard/ogrenci/basvurular/${petition.id}`
+                      )
+                    }
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Enter" ||
+                        event.key === " "
+                      ) {
+                        event.preventDefault();
+                        router.push(
+                          `/dashboard/ogrenci/basvurular/${petition.id}`
+                        );
+                      }
+                    }}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <div className="petition-item-left">
+                      <div className="petition-tracking">
+                        {petition.trackingCode}
+                      </div>
+                      <div className="petition-subject">
+                        {petition.subject}
+                      </div>
+                      <div className="petition-date">
+                        {new Date(
+                          petition.createdAt
+                        ).toLocaleDateString("tr-TR")}
+                      </div>
+                    </div>
+
+                    <div className="petition-item-right">
+                      <span
+                        className={`status-badge ${
+                          STATUS_BADGES[petition.status] ??
+                          "status-closed"
+                        }`}
+                      >
+                        {STATUS_LABELS[petition.status] ??
+                          petition.status}
+                      </span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
 
-function LoadingPage() {
+function StatCard({
+  icon,
+  value,
+  label,
+}: {
+  icon: string;
+  value: number;
+  label: string;
+}) {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div className="spinner spinner-dark" style={{ width: 40, height: 40, borderWidth: 3, margin: '0 auto 16px' }} />
-        <p style={{ color: 'var(--text-muted)' }}>Yükleniyor...</p>
-      </div>
+    <div className="stat-card">
+      <div className="stat-icon">{icon}</div>
+      <div className="stat-value">{value}</div>
+      <div className="stat-label">{label}</div>
     </div>
   );
 }

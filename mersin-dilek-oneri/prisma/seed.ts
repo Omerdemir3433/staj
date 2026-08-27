@@ -1,195 +1,583 @@
-import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import bcrypt from 'bcryptjs';
+import dotenv from "dotenv";
 
-const connectionString = process.env.DATABASE_URL!;
-const adapter = new PrismaPg({ connectionString });
-const prisma = new PrismaClient({ adapter } as any);
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
-async function main() {
-  console.log('🌱 Seed başlıyor...');
+dotenv.config();
+dotenv.config({ path: ".env.local" });
 
-  // Kullanıcıları temizle
-  await prisma.petition.deleteMany();
-  await prisma.user.deleteMany();
+function getRequiredEnvironmentVariable(name: string): string {
+  const value = process.env[name];
 
-  const hash = async (pwd: string) => await bcrypt.hash(pwd, 10);
-
-  // ── Akademik Personel ──────────────────────────────────────────────────────
-  const akademisyen1 = await prisma.user.create({
-    data: {
-      tcKimlik: '12345678901',
-      sicilNo: 'S001',
-      ad: 'Ahmet',
-      soyad: 'Yılmaz',
-      email: 'ahmet.yilmaz@mersin.edu.tr',
-      password: await hash('akademik123'),
-      telefon: '05321234567',
-      userType: 'ACADEMIC',
-      bolum: 'Mühendislik Fakültesi - Bilgisayar Mühendisliği',
-      unvan: 'Doç. Dr.',
-    },
-  });
-
-  const akademisyen2 = await prisma.user.create({
-    data: {
-      tcKimlik: '12345678902',
-      sicilNo: 'S002',
-      ad: 'Ayşe',
-      soyad: 'Kaya',
-      email: 'ayse.kaya@mersin.edu.tr',
-      password: await hash('akademik123'),
-      telefon: '05329876543',
-      userType: 'ACADEMIC',
-      bolum: 'Edebiyat Fakültesi - Türk Dili ve Edebiyatı',
-      unvan: 'Prof. Dr.',
-    },
-  });
-
-  // ── Öğrenciler ─────────────────────────────────────────────────────────────
-  const ogrenci1 = await prisma.user.create({
-    data: {
-      tcKimlik: '23456789012',
-      ogrenciNo: '2021123456',
-      ad: 'Mehmet',
-      soyad: 'Demir',
-      email: 'mehmet.demir@std.mersin.edu.tr',
-      password: await hash('ogrenci123'),
-      telefon: '05335551234',
-      userType: 'STUDENT',
-      bolum: 'Mühendislik Fakültesi - Elektrik-Elektronik Mühendisliği',
-    },
-  });
-
-  const ogrenci2 = await prisma.user.create({
-    data: {
-      tcKimlik: '23456789013',
-      ogrenciNo: '2022987654',
-      ad: 'Zeynep',
-      soyad: 'Çelik',
-      email: 'zeynep.celik@std.mersin.edu.tr',
-      password: await hash('ogrenci123'),
-      telefon: '05337779988',
-      userType: 'STUDENT',
-      bolum: 'İktisadi ve İdari Bilimler Fakültesi - İşletme',
-    },
-  });
-
-  // ── Vatandaşlar ────────────────────────────────────────────────────────────
-  const vatandas1 = await prisma.user.create({
-    data: {
-      tcKimlik: '34567890123',
-      ad: 'Fatma',
-      soyad: 'Öztürk',
-      email: 'fatma.ozturk@gmail.com',
-      password: await hash('vatandas123'),
-      telefon: '05381112233',
-      userType: 'CITIZEN',
-    },
-  });
-
-  const vatandas2 = await prisma.user.create({
-    data: {
-      tcKimlik: '34567890124',
-      ad: 'Hasan',
-      soyad: 'Arslan',
-      email: 'hasan.arslan@hotmail.com',
-      password: await hash('vatandas123'),
-      telefon: '05384445566',
-      userType: 'CITIZEN',
-    },
-  });
-
-  // ── Örnek Dilekçeler ───────────────────────────────────────────────────────
-  const petitions = [
-    {
-      trackingCode: 'MER20240001',
-      userId: ogrenci1.id,
-      category: 'SIKAYET',
-      targetUnit: 'BILGI_ISLEM',
-      konu: 'Üniversite Wi-Fi Bağlantı Problemi',
-      icerik: 'Mühendislik Fakültesi binasında internet bağlantısı son 2 haftadır çok yavaş ve sık sık kesiliyor. Özellikle öğle saatlerinde bağlantı tamamen kopuyor. Bu durum derslerimizi ve araştırma çalışmalarımızı olumsuz etkilemektedir. Gerekli teknik müdahalenin yapılmasını talep ediyorum.',
-      status: 'INCELEMEDE',
-    },
-    {
-      trackingCode: 'MER20240002',
-      userId: akademisyen1.id,
-      category: 'TALEP',
-      targetUnit: 'REKTORLUK',
-      konu: 'Araştırma Laboratuvarı Ekipman Talebi',
-      icerik: 'Bilgisayar Mühendisliği Bölümü olarak yapay zeka araştırmalarımız için GPU sunucusuna ihtiyaç duymaktayız. Mevcut ekipmanlar yetersiz kalmakta ve araştırmalarımızı kısıtlamaktadır. Ek bütçe tahsisi veya ekipman temin edilmesini talep ediyorum.',
-      status: 'CEVAPLANDI',
-      adminNotu: 'Talebiniz değerlendirilmiş olup 2024 yılı bütçe planlamasına dahil edilmiştir. Satın alma süreci Mart 2024\'te başlayacaktır.',
-      cevapTarihi: new Date('2024-02-15'),
-    },
-    {
-      trackingCode: 'MER20240003',
-      userId: vatandas1.id,
-      category: 'BILGI_EDINME',
-      targetUnit: 'OGRENCI_ISLERI',
-      konu: 'Yatay Geçiş Başvuru Koşulları Hakkında Bilgi',
-      icerik: 'Çocuğumun başka bir üniversiteden Mersin Üniversitesi\'ne yatay geçiş yapması için gereken koşulları, başvuru takvimini ve gerekli belgeleri öğrenmek istiyorum.',
-      status: 'CEVAPLANDI',
-      adminNotu: 'Yatay geçiş başvuruları her yıl Haziran-Temmuz aylarında yapılmaktadır. Detaylı bilgi için https://ogrenciisleri.mersin.edu.tr adresini ziyaret edebilirsiniz.',
-      cevapTarihi: new Date('2024-01-20'),
-    },
-    {
-      trackingCode: 'MER20240004',
-      userId: ogrenci2.id,
-      category: 'ONERI',
-      targetUnit: 'SAGLIK_KULTUR',
-      konu: 'Kampüs Spor Tesislerinin Genişletilmesi',
-      icerik: 'Kampüsümüzdeki spor tesisleri öğrenci sayısına kıyasla yetersiz kalmaktadır. Spor salonuna erişim için uzun süreler beklenmektedir.',
-      status: 'BEKLEMEDE',
-    },
-    {
-      trackingCode: 'MER20240005',
-      userId: akademisyen2.id,
-      category: 'TESEKKUR',
-      targetUnit: 'KÜTÜPHANE',
-      konu: 'Kütüphane Hizmetleri İçin Teşekkür',
-      icerik: 'Merkez Kütüphanesi çalışanlarına gösterdikleri ilgi ve yardımseverlik için teşekkür etmek istiyorum.',
-      status: 'KAPATILDI',
-      adminNotu: 'Değerli geri bildiriminiz için teşekkür ederiz. Ekibimizi motive eden yorumunuz tüm çalışanlarımızla paylaşıldı.',
-      cevapTarihi: new Date('2024-01-10'),
-    },
-    {
-      trackingCode: 'MER20240006',
-      userId: vatandas2.id,
-      category: 'SIKAYET',
-      targetUnit: 'YAPI_ISLER',
-      konu: 'Kampüs Çevresi Aydınlatma Sorunu',
-      icerik: 'Üniversite kampüsünün ana girişine yakın yoldaki sokak lambaları uzun süredir çalışmamaktadır.',
-      status: 'INCELEMEDE',
-      adminNotu: 'Şikayetiniz alındı, teknik ekibimiz durumu incelemektedir.',
-    },
-  ];
-
-  for (const p of petitions) {
-    await (prisma.petition as any).create({ data: p });
+  if (!value) {
+    throw new Error(
+      `${name} tanımlı değil. Seed çalıştırmadan önce .env.local dosyasını kontrol edin.`
+    );
   }
 
-  console.log('✅ Seed tamamlandı!');
-  console.log('\n📋 Test Kullanıcıları:');
-  console.log('──────────────────────────────────────────────────────────');
-  console.log('Akademik Personel:');
-  console.log('  Email: ahmet.yilmaz@mersin.edu.tr  | Şifre: akademik123');
-  console.log('  Email: ayse.kaya@mersin.edu.tr     | Şifre: akademik123');
-  console.log('Öğrenci:');
-  console.log('  Email: mehmet.demir@std.mersin.edu.tr | Şifre: ogrenci123');
-  console.log('  Email: zeynep.celik@std.mersin.edu.tr | Şifre: ogrenci123');
-  console.log('Vatandaş:');
-  console.log('  Email: fatma.ozturk@gmail.com      | Şifre: vatandas123');
-  console.log('  Email: hasan.arslan@hotmail.com    | Şifre: vatandas123');
-  console.log('──────────────────────────────────────────────────────────');
+  return value;
+}
+
+const connectionString =
+  getRequiredEnvironmentVariable("DATABASE_URL");
+
+const adminPassword =
+  getRequiredEnvironmentVariable("SEED_ADMIN_PASSWORD");
+
+if (adminPassword.length < 8) {
+  throw new Error(
+    "SEED_ADMIN_PASSWORD en az 8 karakter olmalıdır."
+  );
+}
+
+const adapter = new PrismaPg({
+  connectionString,
+});
+
+const prisma = new PrismaClient({
+  adapter,
+});
+
+const categories = [
+  {
+    code: "TALEP",
+    name: "Talep",
+    description:
+      "Üniversite birimlerinden hizmet, işlem veya destek talep edilen başvurular.",
+  },
+  {
+    code: "SIKAYET",
+    name: "Şikâyet",
+    description:
+      "Üniversite hizmetleri, işlemleri veya uygulamalarıyla ilgili şikâyet başvuruları.",
+  },
+  {
+    code: "BILGI_EDINME",
+    name: "Bilgi Edinme",
+    description:
+      "Üniversiteyle ilgili bilgi edinmek amacıyla oluşturulan başvurular.",
+  },
+  {
+    code: "TESEKKUR",
+    name: "Teşekkür",
+    description:
+      "Üniversite personeli, birimleri veya hizmetleriyle ilgili teşekkür başvuruları.",
+  },
+  {
+    code: "ONERI",
+    name: "Öneri",
+    description:
+      "Üniversite hizmetlerinin ve süreçlerinin geliştirilmesine yönelik öneriler.",
+  },
+] as const;
+
+const units = [
+  {
+    code: "REKTORLUK",
+    name: "Rektörlük",
+    email: "rektorluk@mersin.edu.tr",
+  },
+  {
+    code: "OGRENCI_ISLERI",
+    name: "Öğrenci İşleri Daire Başkanlığı",
+    email: "ogrenciisleri@mersin.edu.tr",
+  },
+  {
+    code: "FEN_BILIMLERI",
+    name: "Fen Fakültesi Dekanlığı",
+    email: "fen@mersin.edu.tr",
+  },
+  {
+    code: "EDEBIYAT",
+    name: "İnsan ve Toplum Bilimleri Fakültesi Dekanlığı",
+    email: "edebiyat@mersin.edu.tr",
+  },
+  {
+    code: "MUHENDISLIK",
+    name: "Mühendislik Fakültesi Dekanlığı",
+    email: "muhendislik@mersin.edu.tr",
+  },
+  {
+    code: "IKTISAT",
+    name: "İktisadi ve İdari Bilimler Fakültesi Dekanlığı",
+    email: "iibf@mersin.edu.tr",
+  },
+  {
+    code: "TIP",
+    name: "Tıp Fakültesi Dekanlığı",
+    email: "tip@mersin.edu.tr",
+  },
+  {
+    code: "HUKUK",
+    name: "Hukuk Fakültesi Dekanlığı",
+    email: "hukuk@mersin.edu.tr",
+  },
+  {
+    code: "EGITIM",
+    name: "Eğitim Fakültesi Dekanlığı",
+    email: "egitim@mersin.edu.tr",
+  },
+  {
+    code: "BILGI_ISLEM",
+    name: "Bilgi İşlem Daire Başkanlığı",
+    email: "bilgiislem@mersin.edu.tr",
+  },
+  {
+    code: "YAPI_ISLERI",
+    name: "Yapı İşleri ve Teknik Daire Başkanlığı",
+    email: "yapiisleri@mersin.edu.tr",
+  },
+  {
+    code: "KUTUPHANE",
+    name: "Kütüphane ve Dokümantasyon Daire Başkanlığı",
+    email: "kutuphane@mersin.edu.tr",
+  },
+  {
+    code: "SAGLIK_KULTUR",
+    name: "Sağlık, Kültür ve Spor Daire Başkanlığı",
+    email: "sks@mersin.edu.tr",
+  },
+] as const;
+
+const staffAccounts = [
+  {
+    firstName: "Sistem",
+    lastName: "Yöneticisi",
+    email: "admin@mersin.edu.tr",
+    password: "admin1234",
+    role: "ADMIN",
+    unitCode: "BILGI_ISLEM",
+  },
+  {
+    firstName: "Öğrenci",
+    lastName: "İşleri Müdürü",
+    email: "ogrenci.isleri.mudur@mersin.edu.tr",
+    password: "ogrenci123",
+    role: "UNIT_MANAGER",
+    unitCode: "OGRENCI_ISLERI",
+  },
+  {
+    firstName: "Elif",
+    lastName: "Kaya",
+    email: "elif.kaya@mersin.edu.tr",
+    password: "birim123",
+    role: "UNIT_STAFF",
+    unitCode: "OGRENCI_ISLERI",
+  },
+  {
+    firstName: "Bilgi",
+    lastName: "İşlem Müdürü",
+    email: "bilgi.islem.mudur@mersin.edu.tr",
+    password: "bilgi123",
+    role: "UNIT_MANAGER",
+    unitCode: "BILGI_ISLEM",
+  },
+  {
+    firstName: "Murat",
+    lastName: "Yılmaz",
+    email: "murat.yilmaz@mersin.edu.tr",
+    password: "birim123",
+    role: "UNIT_STAFF",
+    unitCode: "BILGI_ISLEM",
+  },
+] as const;
+
+const internalUsers = [
+  {
+    firstName: "Ahmet",
+    lastName: "Çetin",
+    email: "ahmet.cetin@std.mersin.edu.tr",
+    password: "student123",
+    role: "STUDENT",
+    studentNumber: "2023001234",
+    department: "Bilgisayar Mühendisliği",
+  },
+  {
+    firstName: "Zeynep",
+    lastName: "Arslan",
+    email: "zeynep.arslan@std.mersin.edu.tr",
+    password: "student123",
+    role: "STUDENT",
+    studentNumber: "2023001235",
+    department: "Elektrik Mühendisliği",
+  },
+  {
+    firstName: "Ali",
+    lastName: "Demir",
+    email: "ali.demir@std.mersin.edu.tr",
+    password: "student123",
+    role: "STUDENT",
+    studentNumber: "2024001001",
+    department: "Makine Mühendisliği",
+  },
+  {
+    firstName: "Fatih",
+    lastName: "Yılmaz",
+    email: "fatih.yilmaz@mersin.edu.tr",
+    password: "academic123",
+    role: "ACADEMIC",
+    academicTitle: "Prof. Dr.",
+    department: "Bilgisayar Mühendisliği",
+  },
+  {
+    firstName: "Leyla",
+    lastName: "Kaplan",
+    email: "leyla.kaplan@mersin.edu.tr",
+    password: "academic123",
+    role: "ACADEMIC",
+    academicTitle: "Doç. Dr.",
+    department: "Elektronik ve Haberleşme Mühendisliği",
+  },
+  {
+    firstName: "Ismail",
+    lastName: "Korkmaz",
+    email: "ismail.korkmaz@mersin.edu.tr",
+    password: "academic123",
+    role: "ACADEMIC",
+    academicTitle: "Dr. Öğr. Üyesi",
+    department: "Bilgisayar Mühendisliği",
+  },
+] as const;
+
+async function seedCategories(): Promise<void> {
+
+  for (const category of categories) {
+    await prisma.category.upsert({
+      where: {
+        code: category.code,
+      },
+      update: {
+        name: category.name,
+        description: category.description,
+        isActive: true,
+      },
+      create: {
+        code: category.code,
+        name: category.name,
+        description: category.description,
+        isActive: true,
+      },
+    });
+  }
+}
+
+async function seedUnits(): Promise<void> {
+  for (const unit of units) {
+    await prisma.unit.upsert({
+      where: {
+        code: unit.code,
+      },
+      update: {
+        name: unit.name,
+        email: unit.email,
+        isActive: true,
+      },
+      create: {
+        code: unit.code,
+        name: unit.name,
+        email: unit.email,
+        isActive: true,
+      },
+    });
+  }
+}
+
+async function seedStaffUsers(): Promise<void> {
+  for (const staffAccount of staffAccounts) {
+    const unit = await prisma.unit.findUnique({
+      where: {
+        code: staffAccount.unitCode,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!unit) {
+      throw new Error(
+        `Birim bulunamadı: ${staffAccount.unitCode}`
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(
+      staffAccount.email === "admin@mersin.edu.tr"
+        ? adminPassword
+        : staffAccount.password,
+      12
+    );
+
+    await prisma.staffUser.upsert({
+      where: {
+        email: staffAccount.email,
+      },
+      update: {
+        firstName: staffAccount.firstName,
+        lastName: staffAccount.lastName,
+        passwordHash,
+        role: staffAccount.role,
+        unitId: unit.id,
+        isActive: true,
+      },
+      create: {
+        firstName: staffAccount.firstName,
+        lastName: staffAccount.lastName,
+        email: staffAccount.email,
+        passwordHash,
+        role: staffAccount.role,
+        unitId: unit.id,
+        isActive: true,
+      },
+    });
+  }
+}
+
+async function seedSamplePetitions(): Promise<void> {
+  const now = new Date();
+
+  const samplePetitions = [
+    {
+      trackingCode: "MER20260001",
+      applicantFirstName: "Ayşe",
+      applicantLastName: "Demir",
+      applicantEmail: "ayse.demir@gmail.com",
+      applicantPhone: "+905551234567",
+      identityVerifiedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2),
+      botCheckVerifiedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2),
+      privacyNoticeVersion: "2026-08-01",
+      privacyNoticeAcknowledgedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2),
+      emailVerifiedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 1),
+      categoryCode: "TALEP",
+      targetUnitCode: "OGRENCI_ISLERI",
+      assignedStaffEmail: "elif.kaya@mersin.edu.tr",
+      subject: "Transkript işlemi için bilgi talebi",
+      content: "Öğrenci transkript işlemleriyle ilgili mevcut durum hakkında bilgi talep ediyorum.",
+      status: "RECEIVED",
+      priority: "HIGH",
+    },
+    {
+      trackingCode: "MER20260002",
+      applicantFirstName: "Mehmet",
+      applicantLastName: "Yıldız",
+      applicantEmail: "mehmet.yildiz@std.mersin.edu.tr",
+      applicantPhone: "+905554321987",
+      identityVerifiedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 3),
+      botCheckVerifiedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 3),
+      privacyNoticeVersion: "2026-08-01",
+      privacyNoticeAcknowledgedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 3),
+      emailVerifiedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 1),
+      categoryCode: "SIKAYET",
+      targetUnitCode: "BILGI_ISLEM",
+      assignedStaffEmail: "murat.yilmaz@mersin.edu.tr",
+      subject: "Öğrenci portalı erişim sorunu",
+      content: "Öğrenci portalında güncelleme sonrası giriş yapamıyorum. Sorunun çözülmesini talep ediyorum.",
+      status: "IN_REVIEW",
+      priority: "URGENT",
+    },
+    {
+      trackingCode: "MER20260003",
+      applicantFirstName: "Fatma",
+      applicantLastName: "Öztürk",
+      applicantEmail: "fatma.ozturk@gmail.com",
+      applicantPhone: "+905553333444",
+      identityVerifiedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 5),
+      botCheckVerifiedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 5),
+      privacyNoticeVersion: "2026-08-01",
+      privacyNoticeAcknowledgedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 5),
+      emailVerifiedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2),
+      categoryCode: "BILGI_EDINME",
+      targetUnitCode: "REKTORLUK",
+      assignedStaffEmail: "admin@mersin.edu.tr",
+      subject: "Akademik takvim ve sınav tarihleri hakkındaki bilgi talebi",
+      content: "Güz döneminde yapılacak sınav tarihleri ve akademik takvimle ilgili güncel bilgiyi talep ediyorum.",
+      status: "ANSWERED",
+      priority: "NORMAL",
+    },
+  ] as const;
+
+  const adminUser = await prisma.staffUser.findUnique({
+    where: { email: "admin@mersin.edu.tr" },
+    select: { id: true },
+  });
+
+  if (!adminUser) {
+    throw new Error("Yönetici hesabı bulunamadı.");
+  }
+
+  const staffUsersByEmail = new Map(
+    (await prisma.staffUser.findMany({
+      select: { id: true, email: true, unitId: true },
+    })).map((staffUser) => [staffUser.email, staffUser])
+  );
+
+  for (const samplePetition of samplePetitions) {
+    const category = await prisma.category.findUnique({
+      where: { code: samplePetition.categoryCode },
+      select: { id: true },
+    });
+
+    const targetUnit = await prisma.unit.findUnique({
+      where: { code: samplePetition.targetUnitCode },
+      select: { id: true },
+    });
+
+    if (!category || !targetUnit) {
+      throw new Error(
+        `Kategori veya birim bulunamadı: ${samplePetition.categoryCode}/${samplePetition.targetUnitCode}`
+      );
+    }
+
+    const assignedStaff = staffUsersByEmail.get(samplePetition.assignedStaffEmail);
+
+    const petition = await prisma.petition.upsert({
+      where: {
+        trackingCode: samplePetition.trackingCode,
+      },
+      update: {
+        applicantFirstName: samplePetition.applicantFirstName,
+        applicantLastName: samplePetition.applicantLastName,
+        applicantEmail: samplePetition.applicantEmail,
+        applicantPhone: samplePetition.applicantPhone,
+        identityVerifiedAt: samplePetition.identityVerifiedAt,
+        botCheckVerifiedAt: samplePetition.botCheckVerifiedAt,
+        privacyNoticeVersion: samplePetition.privacyNoticeVersion,
+        privacyNoticeAcknowledgedAt: samplePetition.privacyNoticeAcknowledgedAt,
+        emailVerifiedAt: samplePetition.emailVerifiedAt,
+        categoryId: category.id,
+        targetUnitId: targetUnit.id,
+        assignedStaffId: assignedStaff?.id ?? null,
+        subject: samplePetition.subject,
+        content: samplePetition.content,
+        status: samplePetition.status,
+        priority: samplePetition.priority,
+      },
+      create: {
+        trackingCode: samplePetition.trackingCode,
+        applicantFirstName: samplePetition.applicantFirstName,
+        applicantLastName: samplePetition.applicantLastName,
+        applicantEmail: samplePetition.applicantEmail,
+        applicantPhone: samplePetition.applicantPhone,
+        identityVerifiedAt: samplePetition.identityVerifiedAt,
+        botCheckVerifiedAt: samplePetition.botCheckVerifiedAt,
+        privacyNoticeVersion: samplePetition.privacyNoticeVersion,
+        privacyNoticeAcknowledgedAt: samplePetition.privacyNoticeAcknowledgedAt,
+        emailVerifiedAt: samplePetition.emailVerifiedAt,
+        categoryId: category.id,
+        targetUnitId: targetUnit.id,
+        assignedStaffId: assignedStaff?.id ?? null,
+        subject: samplePetition.subject,
+        content: samplePetition.content,
+        status: samplePetition.status,
+        priority: samplePetition.priority,
+      },
+    });
+
+    await prisma.petitionStatusHistory.createMany({
+      data: [
+        {
+          petitionId: petition.id,
+          fromStatus: null,
+          toStatus: samplePetition.status,
+          changedById: assignedStaff?.id ?? adminUser.id,
+          createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 12),
+        },
+      ],
+    });
+
+    if (assignedStaff) {
+      await prisma.petitionAssignment.create({
+        data: {
+          petitionId: petition.id,
+          fromUnitId: null,
+          toUnitId: targetUnit.id,
+          assignedToId: assignedStaff.id,
+          assignedById: adminUser.id,
+          note: "Örnek iş akışı ataması",
+        },
+      });
+    }
+  }
+}
+
+async function seedInternalUsers(): Promise<void> {
+  for (const internalUser of internalUsers) {
+    const passwordHash = await bcrypt.hash(internalUser.password, 12);
+
+    const studentNumber = "studentNumber" in internalUser ? (internalUser as any).studentNumber : null;
+    const academicTitle = "academicTitle" in internalUser ? (internalUser as any).academicTitle : null;
+
+    await prisma.internalUser.upsert({
+      where: {
+        email: internalUser.email,
+      },
+      update: {
+        firstName: internalUser.firstName,
+        lastName: internalUser.lastName,
+        passwordHash,
+        role: internalUser.role,
+        studentNumber,
+        academicTitle,
+        department: internalUser.department ?? null,
+        isActive: true,
+      },
+      create: {
+        firstName: internalUser.firstName,
+        lastName: internalUser.lastName,
+        email: internalUser.email,
+        passwordHash,
+        role: internalUser.role,
+        studentNumber,
+        academicTitle,
+        department: internalUser.department ?? null,
+        isActive: true,
+      },
+    });
+  }
+}
+
+async function main(): Promise<void> {
+  console.log("🌱 Seed işlemi başlıyor...");
+
+  await seedCategories();
+  await seedUnits();
+  await seedStaffUsers();
+  await seedInternalUsers();
+  await seedSamplePetitions();
+
+  console.log("✅ Seed işlemi tamamlandı.");
+  console.log("📌 Başvuru kategorileri oluşturuldu.");
+  console.log("📌 Üniversite birimleri oluşturuldu.");
+  console.log("📌 Rol bazlı örnek personel kullanıcıları oluşturuldu.");
+  console.log("📌 İç kullanıcılar (öğrenci ve akademisyen) oluşturuldu.");
+  console.log("📌 Örnek talepler ve yönlendirme akışı hazırlandı.");
+  console.log("");
+  console.log("👨‍💼 Personel Giriş Hesapları:");
+  console.log("  📧 Yönetici: admin@mersin.edu.tr / admin1234");
+  console.log("  📧 Birim Müdürü: ogrenci.isleri.mudur@mersin.edu.tr / ogrenci123");
+  console.log("  📧 Birim Müdürü: bilgi.islem.mudur@mersin.edu.tr / bilgi123");
+  console.log("  📧 Birim Personeli: elif.kaya@mersin.edu.tr / birim123");
+  console.log("  📧 Birim Personeli: murat.yilmaz@mersin.edu.tr / birim123");
+  console.log("");
+  console.log("👨‍🎓 Öğrenci Giriş Hesapları:");
+  console.log("  📧 Ahmet Çetin: ahmet.cetin@std.mersin.edu.tr / student123");
+  console.log("  📧 Zeynep Arslan: zeynep.arslan@std.mersin.edu.tr / student123");
+  console.log("  📧 Ali Demir: ali.demir@std.mersin.edu.tr / student123");
+  console.log("");
+  console.log("👨‍🏫 Akademisyen Giriş Hesapları:");
+  console.log("  📧 Fatih Yılmaz: fatih.yilmaz@mersin.edu.tr / academic123");
+  console.log("  📧 Leyla Kaplan: leyla.kaplan@mersin.edu.tr / academic123");
+  console.log("  📧 Ismail Korkmaz: ismail.korkmaz@mersin.edu.tr / academic123");
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
+  .catch((error: unknown) => {
+    console.error(
+      "❌ Seed işlemi başarısız:",
+      error
+    );
+
+    process.exitCode = 1;
   })
   .finally(async () => {
-    await (prisma as any).$disconnect();
+    await prisma.$disconnect();
   });

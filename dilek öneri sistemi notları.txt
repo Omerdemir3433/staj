@@ -1,0 +1,31 @@
+- Başvuruyu yanıtla ve destek iste başvuru sayfasının üstüne buton olsun ve basınca ilgili işlem yapılsın sayfada çok fazla yer kaplamasın.
+
+
+
+--------------------------------------------------------------------------------------------------------------------
+
+giriş yapmış kullanılar için:
+
+- Headerda yazan giriş yapan kullanıcı adı, rolü kaldırılsın. profil sayfası profil iconu şeklinde olsun. çıkış işlemi profil sayfasının altında olsun.
+
+- Headerda anasayfa ve panel aynı sayfaya gidiyor panel kısmı kaldırılsın.
+
+- Headerda başvuru oluştur kısmı kaldırılsın. profil sayfasında başvurularım diye bir buton olsun ve başvuruların listelendiği ve içinde başvuru oluştur diye bir butonun olduğu bir sayfa olsun. listelenen başvurulardan üstüne basarak takibi yapılabilsin.
+
+modern bir tasarım istiyorum. 
+
+
+-----------------------------------------------------------------------------------------------------------------------
+
+- giriş yapılmışsa başvuru takibi başvurunun üstüne basılarak yapılmalı. eğer giriş yapılmamışsa başvuru kodunu girerek takip edilebilsin. olabildiğince kullanıcı rahat bir şekilde işlemlerini yapabilmeli
+
+- başvuru içeriği, bvuru sahibi,başvuru bilgileri vs gibi bilgiler ayrı ayrı görüntülenmesin tek içerikte ilgili tüm bilgileri resmi evrak gibi görünsün. 
+
+- birleşik yönetim formundaki not başvurunun sohbetleri kısmına yazılsın başka yerde kullanılıyorsa kaldırılsın.
+ilgili görevin notları altında listelensin. görevi üstlenen kişi veya admin başvuruyu yanıtlama yetkisine sahip olsun ve başvuruyu yanıtlada iki seçenek olmasın o kısmın sadece başvuru yanıtlama özelliği olsun ve sayfada her butonu veya formu ilgili her şey mantıklı bir yerde dursun, kullanıcı deneyimi professional düzeyde olsun. 
+
+- admin destek paneli çalışmıyor ya da admine ulaşmıyor. admin ilgili işlemi görmüyor. admin destek veya başvuruyu yanıtla gibi kısımlar buton halinde olsun ve basılınca ilgili işlem yapılabilsin. 
+
+- kullanıcı giriş yaptıktan sonra kendi sayfasında anasayfaya basınca önce / adresine gidiyor daha sonra dashboard/personel sayfasına yönlendiriliyor. yönlendirme olmadan buton direkt dashboard/personel sayfasına gitsin. ve diğer butonları da kontrol et yönlendirme ile giden linkleri düzelt. sonunda gidildiği linki değiştir doğru yere yönlendirmeden gittiğini kontrol et. 
+
+- başvuru alındı, inceleniyor, cevaplandı , reddedildi gibi işlemler başvurunun etiketi gibi görünsün ve yapılan işlemlere göre otomatik atama yapılsın. ilgili birim personeli başvuru reddedip onaylayabilsin ya da kapatabilsin. diğer aşamalar ilerlemeye göre sistem tarafından otomatik atansın. 
