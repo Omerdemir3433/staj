@@ -55,6 +55,10 @@ export async function verifyIdentity(
     process.env.IDENTITY_VERIFICATION_PROVIDER ??
     (process.env.NODE_ENV === "production" ? "disabled" : "mock");
 
+  /**
+   * IDENTITY_VERIFICATION_PROVIDER=mock açıkça ayarlandığında
+   * (demo/yerel kurulum) gerçek servise gerek kalmadan doğrulama yapılır.
+   */
   if (provider === "mock") {
     return {
       verified: true,

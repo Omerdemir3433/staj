@@ -46,16 +46,10 @@ export async function verifyCaptcha(
     (process.env.NODE_ENV === "production" ? "disabled" : "mock");
 
   /**
-   * Yalnızca geliştirme ortamında kullanılacak kontrollü test doğrulaması.
+   * CAPTCHA_PROVIDER=mock açıkça ayarlandığında (demo/yerel kurulum)
+   * gerçek Turnstile servisine gerek kalmadan kontrollü test yapılır.
    */
   if (provider === "mock") {
-    if (process.env.NODE_ENV === "production") {
-      return {
-        success: false,
-        message: "Production ortamında mock CAPTCHA kullanılamaz.",
-      };
-    }
-
     if (token !== "development-mock-token") {
       return {
         success: false,

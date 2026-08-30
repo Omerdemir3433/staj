@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
             name: "auth_token",
             value: token,
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
+            secure: req.nextUrl.protocol === "https:",
             sameSite: "lax",
             maxAge: 60 * 60 * 12, // 12 hours
             path: "/",

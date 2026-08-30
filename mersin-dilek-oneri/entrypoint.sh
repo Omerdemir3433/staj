@@ -2,7 +2,7 @@
 set -e
 
 echo "Veritabani shemasi senkronize ediliyor..."
-npx prisma db push --skip-generate --accept-data-loss
+node node_modules/prisma/build/index.js db push --accept-data-loss
 
 echo "Seed verileri yukleniyor..."
 node prisma/seed.js
