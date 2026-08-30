@@ -723,7 +723,8 @@ export async function POST(request: NextRequest) {
       message:
         "Başvurunuz oluşturuldu. Devam etmek için e-posta adresinize gönderilen doğrulama kodunu girin.",
       verificationRequired: true,
-      ...(process.env.NODE_ENV !== "production"
+      ...(process.env.NODE_ENV !== "production" ||
+      emailResult.provider === "log"
         ? {
             developmentVerificationUrl:
               verificationUrl,

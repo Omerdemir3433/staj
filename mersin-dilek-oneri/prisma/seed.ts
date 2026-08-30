@@ -472,29 +472,47 @@ async function seedSamplePetitions(): Promise<void> {
       },
     });
 
-    await prisma.petitionStatusHistory.createMany({
-      data: [
-        {
+    const existingHistoryCount =
+      await prisma.petitionStatusHistory.count({
+        where: {
           petitionId: petition.id,
-          fromStatus: null,
-          toStatus: samplePetition.status,
-          changedById: assignedStaff?.id ?? adminUser.id,
-          createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 12),
-        },
-      ],
-    });
-
-    if (assignedStaff) {
-      await prisma.petitionAssignment.create({
-        data: {
-          petitionId: petition.id,
-          fromUnitId: null,
-          toUnitId: targetUnit.id,
-          assignedToId: assignedStaff.id,
-          assignedById: adminUser.id,
-          note: "Örnek iş akışı ataması",
         },
       });
+
+    if (existingHistoryCount === 0) {
+      await prisma.petitionStatusHistory.createMany({
+        data: [
+          {
+            petitionId: petition.id,
+            fromStatus: null,
+            toStatus: samplePetition.status,
+            changedById: assignedStaff?.id ?? adminUser.id,
+            createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 12),
+          },
+        ],
+      });
+    }
+
+    if (assignedStaff) {
+      const existingAssignmentCount =
+        await prisma.petitionAssignment.count({
+          where: {
+            petitionId: petition.id,
+          },
+        });
+
+      if (existingAssignmentCount === 0) {
+        await prisma.petitionAssignment.create({
+          data: {
+            petitionId: petition.id,
+            fromUnitId: null,
+            toUnitId: targetUnit.id,
+            assignedToId: assignedStaff.id,
+            assignedById: adminUser.id,
+            note: "Örnek iş akışı ataması",
+          },
+        });
+      }
     }
   }
 }
@@ -503,8 +521,14 @@ async function seedInternalUsers(): Promise<void> {
   for (const internalUser of internalUsers) {
     const passwordHash = await bcrypt.hash(internalUser.password, 12);
 
-    const studentNumber = "studentNumber" in internalUser ? (internalUser as any).studentNumber : null;
-    const academicTitle = "academicTitle" in internalUser ? (internalUser as any).academicTitle : null;
+    const studentNumber =
+      "studentNumber" in internalUser
+        ? internalUser.studentNumber
+        : null;
+    const academicTitle =
+      "academicTitle" in internalUser
+        ? internalUser.academicTitle
+        : null;
 
     await prisma.internalUser.upsert({
       where: {

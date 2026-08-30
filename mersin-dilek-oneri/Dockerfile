@@ -9,6 +9,11 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# prisma generate, prisma.config.ts uzerinden DATABASE_URL
+# cozumlemek ister; baglanti kurmaz, yalnizca URL gecerli olmalidir.
+ENV DATABASE_URL="postgresql://postgres:1234@db:5432/mersin_dilek_oneri?schema=public"
+
 RUN npx prisma generate
 RUN npm run build
 RUN npx tsc prisma/seed.ts --outDir seed-dist --target ES2017 --module CommonJS --moduleResolution node --esModuleInterop --resolveJsonModule --skipLibCheck
@@ -29,20 +34,15 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Prisma schema + generated client (db push icin gerekli)
+# Prisma schema + config için gerekli dosyalar
 COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
-# Seed icin gerekli dependency'leri
-COPY --from=builder /app/node_modules/pg ./node_modules/pg
-COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
-COPY --from=builder /app/node_modules/dotenv ./node_modules/dotenv
-COPY --from=builder /app/node_modules/@prisma/adapter-pg ./node_modules/@prisma/adapter-pg
+# Prisma CLI + seed için tüm bağımlılıklar (transitive paketler dahil)
+COPY --from=builder /app/node_modules ./node_modules
 
 # Derlenmis seed dosyasi
-COPY --from=builder /app/seed-dist/prisma/seed.js ./prisma/seed.js
+COPY --from=builder /app/seed-dist/seed.js ./prisma/seed.js
 
 # Entrypoint (Windows'tan CRLF gelirse LF'e cevir)
 COPY entrypoint.sh ./entrypoint.sh
